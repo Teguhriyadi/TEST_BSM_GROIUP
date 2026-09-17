@@ -1,0 +1,243 @@
+================================================================================
+                  SISTEM KOPERASI SIMPAN PINJAM BSM GROUP
+                   ALUR PENGGUNAAN DAN KONFIGURASI ENV
+================================================================================
+
+Tabel Konten (sejajar dengan urutan baris di file .env):
+--------------------------------------------------------------------------------
+  [SECTION 1] BARIS 1-5   → APP_NAME, APP_ENV, APP_KEY, APP_DEBUG, APP_URL
+  [SECTION 2] BARIS 7-21  → Lokal, Bcrypt, Logging
+  [SECTION 3] BARIS 23-28 → KONEKSI DATABASE MYSQL
+  [SECTION 4] BARIS 30-38 → SESSION, FILESYSTEM (PUBLIC DISK), QUEUE, CACHE
+  [SECTION 5] BARIS 50-51 + BARIS 61-66 → SMTP EMAIL (MAIL + SMTP_)
+  [ALUR 1]  AUTENTIKASI LOGIN, LUPA PASSWORD, RESET PASSWORD (SMTP)
+  [ALUR 2]  PENGAJUAN PINJAMAN + UPLOAD DOKUMEN + KOMPRESI GAMBAR
+  [ALUR 3]  VERIFIKASI DOKUMEN OLEH VALIDATOR (KC / ADMINISTRATOR)
+  [ALUR 4]  APPROVAL PINJAMAN HANYA JIKA SEMUA DOKUMEN WAJIB DISETUJUI
+  [ALUR 5]  PENCairan + ANGSURAN (existing flow)
+================================================================================
+
+
+[SECTION 1] BARIS 1-5 → APP_NAME, APP_ENV, APP_KEY, APP_DEBUG, APP_URL
+  Digunakan sebagai identitas brand dan base URL link reset password via email,
+  serta link akses storage/dokumen.
+  Contoh link reset password: {APP_URL}/reset-password/{token}?email=xxx
+
+
+[SECTION 2] BARIS 7-21 → Lokal, Bcrypt, Logging
+  BCRYPT_ROUNDS=12: Cost hash password (Akun user + force change password +
+                    reset via email semuanya menggunakan Hash::make dengan
+                    cost ini).
+
+
+[SECTION 3] BARIS 23-28 → DATABASE MYSQL
+  Nama DB       : db_bsm
+  Username/Port : root / 3306 (default XAMPP / Laragon)
+  Tabel inti    :
+    1. users                       → akun login (Admin, Teller, KC)
+    2. password_resets             → token link lupa password (masa berlaku 60 menit)
+    3. anggota                     → data nasabah
+    4. cabang                      → kantor cabang
+    5. jenis_simpanan / simpanan   → tabungan anggota
+    6. jenis_pinjaman              → produk pinjaman (Mikro, Konsumtif, Pendidikan, Perumahan)
+    7. master_dokumen              → KTP, KK, Slip Gaji, Surat Kerja, Dok Jaminan
+    8. jenis_pinjaman_dokumen_persyaratan  → pivot, atur dokumen WAJIB per jenis pinjaman
+    9. pinjaman                    → pengajuan (status: diajukan s/d dibatalkan, 8 enum)
+   10. pinjaman_dokumen            → detail upload dokumen per pengajuan (5 status)
+   11. angsuran / pembayaran_angsuran → angsuran bulanan (existing)
+   12. roles / permissions / role_has_permissions / model_has_roles → RBAC
+   13. aktivitas_logs              → audit login, logout, CRUD User/Role/Cabang
+
+
+[SECTION 4] BARIS 30-38 → SESSION + FILESYSTEM_DISK=public + QUEUE
+  FILESYSTEM_DISK=public (BARIS 37) → wajib, karena:
+    └─ Upload dokumen pinjaman disimpan via Storage::disk('public')
+    └─ Path fisik  : storage/app/public/dokumen-pinjaman/{pinjaman_id}/{filename}
+    └─ Jalankan    : php artisan storage:link  → symlink public/storage/
+    └─ URL publik  : /storage/dokumen-pinjaman/{pinjaman_id}/{filename}
+    └─ CompressImage() helper memakai disk ini (JPG/PNG di-resize max 1600px,
+       quality 80, agar KTP/KK terbaca jelas).
+
+
+[SECTION 5] BARIS 50-51 MAIL + BARIS 61-66 SMTP
+--------------------------------------------------------------------------------
+  Prioritas ambil nilai (config/mail.php MAIL > SMTP > default fallback):
+    MAIL_HOST      → jika tidak ada  → pakai SMTP_HOST (smtp.gmail.com)
+    MAIL_PORT      → cast ke integer, fallback SMTP_PORT (587)
+    MAIL_USERNAME  → fallback SMTP_USER (gmail akun)
+    MAIL_PASSWORD  → fallback SMTP_PASSWORD (App Password Gmail, 16 karakter)
+    MAIL_FROM_*    → fallback SMTP_FROM_NAME / SMTP_FROM_EMAIL
+    MAIL_SCHEME=null → biarkan STARTTLS otomatis di-port 587 (Gmail standard).
+
+  CATATAN: JANGAN pernah tulis "${SMTP_X}" di file .env (urutan line bisa
+           berubah menyebabkan literal string tersimpan). Resolusi langsung
+           via config/mail.php dengan nested env('MAIL_X', env('SMTP_X')).
+
+
+================================================================================
+[ALUR 1]  AUTENTIKASI LOGIN, LUPA PASSWORD, RESET PASSWORD (SMTP)
+================================================================================
+SKENARIO 1A. USER LUPA PASSWORD (BELUM PERNAH LOGIN, LANGSUNG LUPA):
+  1.  Buka /login   →  klik link "Lupa Password?" pojok kanan bawah.
+  2.  /lupa-password → isi Email yang terdaftar di tabel users → Kirim.
+  3.  Backend:
+        a.  Validasi email exist (ForgotPasswordRequest).
+        b.  Generate random 64-char token, Hash::make(token), simpan ke
+            tabel password_resets (email + hashed token + created_at).
+        c.  Kirim Email via Notify → ResetPasswordNotification (MailMessage),
+            tombol "Reset Password" di email link ke:
+               {APP_URL}/reset-password/{TOKEN_PLAINTEXT}?email=USER_EMAIL
+            Masa berlaku link = 60 menit.
+  4.  User buka email  →  klik tombol Reset Password  →  terbuka halaman
+      /reset-password/{token}?email=xxx.
+  5.  Isi Password Baru + Konfirmasi Password (min 8 karakter, sama persis).
+  6.  Backend proses (ResetPasswordRequest → DB::transaction):
+        a.  Cari row password_resets by email.
+        b.  Hash::check(plaintext token dari URL, hash di DB)  →  WAJIB COCOK.
+        c.  Cek kadaluarsa (max 60 menit).
+        d.  Update users.password = Hash::make(password_baru).
+        e.  ✅ OTOMATIS users.force_change_password = 0  (TIDAK AKAN MUNCUL
+            MODAL FORCE RESET DI DASHBOARD KETIKA LOGIN NANTI, karena user
+            BARU SAJA bikin password sendiri via email link).
+        f.  Catat AktivitasLog "Password direset via link lupa password".
+        g.  Hapus semua token user di tabel password_resets (sekali pakai).
+  7.  Redirect ke /login  →  pesan sukses.
+  8.  Login dengan password baru  →  DASHBOARD TANPA modal reset password ✅.
+
+
+SKENARIO 1B. USER BARU PERTAMA KALI LOGIN (password default / force_change_password=1)
+  TANPA PERNAH pilih Lupa Password:
+  1.  Login berhasil → cek field force_change_password = 1.
+  2.  Modal Bootstrap backdrop-static (TIDAK BISA ditutup klik luar / ESC)
+      muncul otomatis di atas dashboard: "Anda diminta mengganti password".
+  3.  Isi password lama + password baru + konfirmasi → Simpan.
+  4.  Sukses → force_change_password di-set 0 → refresh halaman.
+
+
+================================================================================
+[ALUR 2]  PENGAJUAN PINJAMAN + UPLOAD DOKUMEN + KOMPRESI GAMBAR
+================================================================================
+  1.  Menu Pinjaman → Tambah Pengajuan → Pilih Anggota, Pilih Jenis Pinjaman,
+      isi nominal, tenor (bulan), bunga % → Submit Simpan.
+  2.  Backend PinjamanController@store  →  status default 'diajukan'.
+      Setelah pinjaman ID didapat → METHOD seedDokumenWajibForPinjaman():
+        → Ambil daftar MasterDokumen wajib dari pivot jenis_pinjaman_dokumen_persyaratan
+          (JenisPinjaman->dokumenPersyaratanWajib).
+        → upsert() ke tabel pinjaman_dokumen (unique pair pinjaman_id+master_dokumen_id).
+        → Setiap dokumen default status = 'belum_diunggah'.
+  3.  Redirect otomatis ke halaman Detail Pengajuan (pinjaman/{id}).
+  4.  Tampilkan Progress Bar Dokumen (X / Y disetujui).
+  5.  User / Teller upload 1 per 1 dokumen via form upload di setiap kartu dokumen:
+        a.  File JPG / JPEG / PNG  →  panggil global helper:
+              compressImage($file, 'dokumen-pinjaman/'.$pinjaman->id, 80, 1600);
+            Helper langkahnya:
+              • Cek ekstensi, panggil GD imagecreatefromjpeg / imagecreatefrompng
+              • Hitung ratio resize jika lebar > 1600px → ukuran tinggi menyesuaikan
+              • imagecopyresampled() + imagejpeg($gd, null, 80)  →  stream ke temp file
+              • PNG preserve alpha channel (imagesavealpha=true) agar transparan OK
+              • Nama file: Str::random(40) + ext
+              • Storage::disk('public')->put('dokumen-pinjaman/{id}/name.jpg')
+              • Hanya simpan HASIL KOMPRESI, file asli dibuang.
+              • Return relative path (tanpa /storage/ prefix).
+        b.  File PDF  →  TIDAK di-compress, validasi mimes + max 10 MB → storeAs
+            langsung ke folder sama.
+        c.  SEBELUM simpan file baru: jika sebelumnya ada file_path di tabel,
+            Storage::disk('public')->delete($oldPath) agar storage tidak penuh.
+        d.  Update pinjaman_dokumen:
+              file_path        = path kompresi
+              nama_file_asli   = $_FILES original name
+              ukuran_file (KB)
+              tipe_mime
+              uploader_users_id = Auth::id()
+              status           = 'menunggu_verifikasi'  ← upload baru selalu
+              catatan          = null (hapus catatan lama jika sebelumnya ditolak)
+              verifikator + tgl_verifikasi = null.
+
+
+================================================================================
+[ALUR 3]  VERIFIKASI DOKUMEN OLEH VALIDATOR (KEPALA CABANG / ADMIN)
+================================================================================
+  Permission dibutuhkan: PINJAMAN_DOKUMEN_VERIFIKASI
+  1.  KC / Admin buka halaman Detail Pengajuan Pinjaman.
+  2.  Lihat daftar kartu dokumen, untuk setiap dokumen ada:
+      • Preview gambar (jika tipe_mime image/*)
+      • Tombol Lihat (tab baru) / Download
+      • Jika status = menunggu_verifikasi / ditolak / perlu_diperbaiki →
+        Muncul form VERIFIKASI di bawah kartu:
+            - Select Status  : Disetujui / Ditolak / Perlu Diperbaiki
+            - Textarea Catatan :
+                  * WAJIB DIISI jika pilih "Ditolak" atau "Perlu Diperbaiki"
+                    (DokumenPinjamanVerifikasiRequest menggunakan sometimes()
+                    validation rule conditional).
+  3.  Submit → Backend:
+        • Update pinjaman_dokumen.status + catatan
+        • verifikator_users_id = Auth::id()
+        • tgl_verifikasi = now()  ← otomatis diset model booted() updating
+          (hanya jika status di-ubah ke disetujui / ditolak / perlu_diperbaiki).
+
+
+================================================================================
+[ALUR 4]  ATURAN KETAT: APPROVAL PINJAMAN DOKUMEN WAJIB 100% DISETUJUI
+================================================================================
+  STATUS PINJAMAN TETAP 8 ENUM existing (TIDAK DITAMBAH):
+    diajukan → diverifikasi → disetujui / ditolak → dicairkan → berjalan → lunas
+    atau dibatalkan.
+
+  ATURAN VERIFIKASI (PINJAMAN DIVERIFIKASI):
+  Sebelum status pinjaman bisa diubah "diajukan" → "diverifikasi" (tombol
+  "Verifikasi Pengajuan" di halaman detail), sistem WAJIB menjalankan method
+  Pinjaman::semuaDokumenWajibDisetujui():
+
+    FOREACH (semua baris pinjaman_dokumen WHERE master_dokumen_id IN daftar wajib):
+        JIKA status != 'disetujui' → return FALSE
+    return TRUE
+
+  KALAU METHOD TERSEBUT MERETURN FALSE → tombol Verifikasi Pengajuan TIDAK MUNCUL,
+  diganti dengan ALERT WARNING DAFTAR HAMBATAN (contoh):
+    × KTP: status masih perlu_diperbaiki.
+    × Slip Gaji: status belum_diunggah.
+    × Surat Kerja: status ditolak.
+
+  HANYA JIKA SEMUA DOKUMEN WAJIB SUDAH STATUS 'disetujui':
+    → tombol "Verifikasi Pengajuan" muncul warna biru solid.
+    → klik → status pinjaman berubah jadi 'diverifikasi'.
+
+  SETELAH status = diverifikasi → flow approval existing (setujui / tolak pinjaman
+  + pencairan) berjalan normal seperti biasa.
+
+
+================================================================================
+[ALUR 5]  PENCairan + ANGSURAN (existing tetap jalan)
+================================================================================
+  Status 'disetujui'  →  buat transaksi simpanan masuk (pencairan ke anggota)
+                         + generate jadwal angsuran per bulan sebanyak tenor.
+  Status 'berjalan'   →  Teller bisa input Pembayaran Angsuran setiap bulan
+                         (denda otomatis jika lewat jatuh tempo).
+  Status 'lunas'      →  seluruh angsuran lunas.
+
+
+================================================================================
+RINGKASAN FILE MODUL UTAMA FITUR INI (UNTUK REFERENSI CEPAT):
+================================================================================
+  • config/mail.php                 → mapping MAIL + SMTP_ priority fallback
+  • database/migrations/*050000*    → 3 file migration dokumen pinjaman
+  • database/migrations/*070000*    → password_resets migration
+  • app/Helpers/image_helper.php    → global function compressImage()
+  • app/Models/MasterDokumen.php + JenisPinjamanDokumenPersyaratan.php +
+    app/Models/PinjamanDokumen.php  → 3 model dokumen baru UUID.
+  • app/Http/Controllers/JenisPinjamanController.php → sync pivot persyaratan
+  • app/Http/Controllers/PinjamanController.php      → show, upload, verifikasi
+  • app/Http/Controllers/AuthController.php          → forgot/reset password 4 method
+  • app/Http/Requests/Password/*Request.php + Pinjaman/*Request.php
+  • app/Notifications/ResetPasswordNotification.php
+  • routes/web.php                   → lupa-password, reset-password,
+                                       pinjaman.show, upload, verifikasi
+  • resources/views/auth/login.blade.php          → link lupa password
+  • resources/views/auth/forgot-password.blade.php
+  • resources/views/auth/reset-password.blade.php
+  • resources/views/modules/jenis-pinjaman/form-persyaratan-dokumen.blade.php
+  • resources/views/modules/pinjaman/index.blade.php (kolom Progress)
+  • resources/views/modules/pinjaman/show.blade.php (halaman detail dokumen)
+  • database/seeders/DatabaseSeeder.php → 5 MasterDokumen + 4 pivot jenis pinjaman
+                                          + 2 permissions PINJAMAN_DOKUMEN_*
+================================================================================
