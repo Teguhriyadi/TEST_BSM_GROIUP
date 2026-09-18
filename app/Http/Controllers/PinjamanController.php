@@ -15,6 +15,7 @@ use App\Models\Pinjaman;
 use App\Models\PinjamanDokumen;
 use App\Traits\WithModuleFilter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -105,7 +106,9 @@ class PinjamanController extends Controller
             $anggota = Anggota::where('status', 'aktif')->get(['id', 'nama', 'no_anggota']);
             $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
         }
-        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->get(['id', 'nama_jenis']);
+        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->get([
+            'id', 'nama_jenis', 'bunga_tahunan', 'tenor_minimal', 'tenor_maksimal', 'maksimal_plafon',
+        ]);
         return view("modules.pinjaman.create", compact('anggota', 'cabang', 'jenisPinjaman'));
     }
 
@@ -133,17 +136,71 @@ class PinjamanController extends Controller
         }
     }
 
+    private function hitungAngsuranPerBulan(float $jumlah, float $bungaTahunan, int $tenor): float
+    {
+        if ($tenor <= 0) {
+            return round($jumlah, 2);
+        }
+        if ($bungaTahunan <= 0) {
+            return round($jumlah / $tenor, 2);
+        }
+        $r = $bungaTahunan / 100 / 12;
+        if ($r <= 0) {
+            return round($jumlah / $tenor, 2);
+        }
+        $pow = pow(1 + $r, $tenor);
+        $denominator = $pow - 1;
+        if ($denominator <= 0) {
+            return round($jumlah / $tenor, 2);
+        }
+        return round($jumlah * ($r * $pow) / $denominator, 2);
+    }
+
     public function store(PinjamanCreateRequest $request)
     {
         DB::beginTransaction();
         try {
-            $pinjaman = Pinjaman::create($request->validated());
+            $valid = $request->validated();
+
+            $jenisPinjaman = isset($valid['jenis_pinjaman_id'])
+                ? JenisPinjaman::find($valid['jenis_pinjaman_id'])
+                : null;
+
+            if (empty($valid['nomor_pinjaman'] ?? null)) {
+                $tglPengajuan = null;
+                if (! empty($valid['tgl_pengajuan'])) {
+                    try {
+                        $tglPengajuan = Carbon::parse($valid['tgl_pengajuan']);
+                    } catch (\Throwable $e) {
+                        $tglPengajuan = null;
+                    }
+                }
+                $cabangId = (string) ($valid['cabang_id'] ?? (Auth::check() ? (string) (Auth::user()->cabang_id ?? '') : ''));
+                $valid['nomor_pinjaman'] = Pinjaman::generateNomorPinjaman($cabangId, $tglPengajuan);
+            }
+
+            if (isset($jenisPinjaman) && $jenisPinjaman->exists) {
+                if (empty($valid['bunga'] ?? null)) {
+                    $valid['bunga'] = $jenisPinjaman->bunga_tahunan;
+                }
+                if (! empty($valid['jumlah_pinjaman']) && ! empty($valid['tenor'])) {
+                    $jumlah = (float) $valid['jumlah_pinjaman'];
+                    $tenor = (int) $valid['tenor'];
+                    $bunga = (float) ($valid['bunga'] ?? $jenisPinjaman->bunga_tahunan);
+                    $angsuranDefault = $this->hitungAngsuranPerBulan($jumlah, $bunga, $tenor);
+                    if (empty($valid['angsuran_per_bulan']) || (float) $valid['angsuran_per_bulan'] <= 0) {
+                        $valid['angsuran_per_bulan'] = $angsuranDefault;
+                    }
+                }
+            }
+
+            $pinjaman = Pinjaman::create($valid);
             $pinjaman->loadMissing('jenisPinjaman.dokumenPersyaratanWajib');
             $this->seedDokumenWajibForPinjaman($pinjaman);
             DB::commit();
             return redirect()
                 ->route('pinjaman.show', $pinjaman->id)
-                ->with('success', 'Pengajuan pinjaman berhasil disimpan. Silakan unggah dokumen persyaratan berikutnya.');
+                ->with('success', 'Pengajuan pinjaman berhasil disimpan (Nomor: ' . $pinjaman->nomor_pinjaman . '). Silakan unggah dokumen persyaratan berikutnya.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withInput()->with('error', 'Data gagal disimpan: ' . $e->getMessage());
@@ -155,7 +212,9 @@ class PinjamanController extends Controller
         $pinjaman = Pinjaman::findOrFail($id);
         $anggota = Anggota::where('status', 'aktif')->get(['id', 'nama', 'no_anggota']);
         $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
-        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->get(['id', 'nama_jenis']);
+        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->get([
+            'id', 'nama_jenis', 'bunga_tahunan', 'tenor_minimal', 'tenor_maksimal', 'maksimal_plafon',
+        ]);
         return view("modules.pinjaman.edit", compact('pinjaman', 'anggota', 'cabang', 'jenisPinjaman'));
     }
 
@@ -165,13 +224,48 @@ class PinjamanController extends Controller
         try {
             $pinjaman = Pinjaman::findOrFail($id);
             $jenisIdLama = (string) $pinjaman->jenis_pinjaman_id;
-            $pinjaman->update($request->validated());
+
+            $valid = $request->validated();
+
+            if (empty($valid['nomor_pinjaman'] ?? null) && empty($pinjaman->nomor_pinjaman)) {
+                $tglPengajuan = null;
+                $tgl = $valid['tgl_pengajuan'] ?? $pinjaman->tgl_pengajuan ?? null;
+                if (! empty($tgl)) {
+                    try { $tglPengajuan = Carbon::parse($tgl); } catch (\Throwable $e) { $tglPengajuan = null; }
+                }
+                $cabangId = (string) ($valid['cabang_id'] ?? $pinjaman->cabang_id ?? (Auth::check() ? (string) (Auth::user()->cabang_id ?? '') : ''));
+                $valid['nomor_pinjaman'] = Pinjaman::generateNomorPinjaman($cabangId, $tglPengajuan);
+            }
+
+            $jenisIdBaru = (string) ($valid['jenis_pinjaman_id'] ?? $jenisIdLama);
+            $jenisBaru = $jenisIdBaru !== '' ? JenisPinjaman::find($jenisIdBaru) : null;
+
+            if ($jenisBaru && $jenisBaru->exists) {
+                if (empty($valid['bunga'] ?? null) || (float) ($valid['bunga'] ?? 0) <= 0) {
+                    $valid['bunga'] = $jenisBaru->bunga_tahunan;
+                }
+            }
+
+            $pinjaman->update($valid);
+
+            if (isset($jenisBaru) && $jenisBaru->exists && ! empty($pinjaman->jumlah_pinjaman) && ! empty($pinjaman->tenor)) {
+                $jumlah = (float) $pinjaman->jumlah_pinjaman;
+                $tenor = (int) $pinjaman->tenor;
+                $bunga = (float) ($pinjaman->bunga ?? $jenisBaru->bunga_tahunan);
+                $angsuranDefault = $this->hitungAngsuranPerBulan($jumlah, $bunga, $tenor);
+                if (empty($pinjaman->angsuran_per_bulan) || (float) $pinjaman->angsuran_per_bulan <= 0) {
+                    $pinjaman->update(['angsuran_per_bulan' => $angsuranDefault]);
+                }
+            }
+
             $pinjaman->loadMissing('jenisPinjaman.dokumenPersyaratanWajib');
             if ($jenisIdLama !== (string) $pinjaman->jenis_pinjaman_id) {
                 $this->seedDokumenWajibForPinjaman($pinjaman);
             }
             DB::commit();
-            return redirect()->route('pinjaman.index')->with('success', 'Data berhasil diubah');
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('success', 'Data berhasil diubah (Nomor Pinjaman: ' . ($pinjaman->nomor_pinjaman ?? '-') . ').');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withInput()->with('error', 'Data gagal diubah: ' . $e->getMessage());
@@ -482,9 +576,9 @@ class PinjamanController extends Controller
 
             $tglCairRaw = $request->input('tgl_cair');
             try {
-                $tglCair = $tglCairRaw ? \Carbon\Carbon::parse($tglCairRaw) : \Carbon\Carbon::now();
+                $tglCair = $tglCairRaw ? Carbon::parse($tglCairRaw) : Carbon::now();
             } catch (\Throwable $e) {
-                $tglCair = \Carbon\Carbon::now();
+                $tglCair = Carbon::now();
             }
 
             $pinjaman->update([
@@ -509,7 +603,7 @@ class PinjamanController extends Controller
         }
     }
 
-    private function generateJadwalAngsuran(Pinjaman $pinjaman, \Carbon\Carbon $tglCair): void
+    private function generateJadwalAngsuran(Pinjaman $pinjaman, Carbon $tglCair): void
     {
         $tenor = (int) max(1, (int) $pinjaman->tenor);
         $angsuranPerBulan = (float) $pinjaman->angsuran_per_bulan;

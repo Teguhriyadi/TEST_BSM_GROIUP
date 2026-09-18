@@ -40,51 +40,64 @@
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="jenis_pinjaman_id" class="form-label">Jenis Pinjaman <span class="text-danger">*</span></label>
-                    <select name="jenis_pinjaman_id" id="jenis_pinjaman_id" class="form-select select2 @error('jenis_pinjaman_id') is-invalid @enderror">
+                    <select name="jenis_pinjaman_id" id="jenis_pinjaman_id" class="form-select select2 @error('jenis_pinjaman_id') is-invalid @enderror" data-auto-fill-targets="true">
                         <option value="">-- Pilih Jenis Pinjaman --</option>
                         @foreach($jenisPinjaman as $jp)
-                        <option value="{{ $jp->id }}" {{ old('jenis_pinjaman_id', $pinjaman->jenis_pinjaman_id) == $jp->id ? 'selected' : '' }}>
+                        <option value="{{ $jp->id }}"
+                            {{ old('jenis_pinjaman_id', $pinjaman->jenis_pinjaman_id) == $jp->id ? 'selected' : '' }}
+                            data-bunga="{{ number_format((float) $jp->bunga_tahunan, 2, '.', '') }}"
+                            data-tenor-min="{{ (int) $jp->tenor_minimal }}"
+                            data-tenor-maks="{{ (int) $jp->tenor_maksimal }}"
+                            data-plafon="{{ number_format((float) $jp->maksimal_plafon, 2, '.', '') }}">
                             {{ $jp->nama_jenis }}
+                            (Bunga {{ (float) $jp->bunga_tahunan }}%/thn ·
+                            Tenor {{ (int) $jp->tenor_minimal }}-{{ (int) $jp->tenor_maksimal }} bln ·
+                            Plafon maks. Rp {{ number_format((float) $jp->maksimal_plafon, 0, ',', '.') }})
                         </option>
                         @endforeach
                     </select>
                     @error('jenis_pinjaman_id')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label for="nomor_pinjaman" class="form-label">Nomor Pinjaman</label>
-                    <input type="text" id="nomor_pinjaman" class="form-control" value="{{ $pinjaman->nomor_pinjaman }}" readonly disabled>
-                    <input type="hidden" name="nomor_pinjaman" value="{{ $pinjaman->nomor_pinjaman }}">
-                    <div class="form-text text-muted"><small>Nomor dibuat otomatis saat pengajuan dibuat dan tidak dapat diubah.</small></div>
-                    @error('nomor_pinjaman')
-                    <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
-                    @enderror
+                    <div id="jp_hint" class="form-text text-muted small mt-1"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="jumlah_pinjaman" class="form-label">Jumlah Pinjaman <span class="text-danger">*</span></label>
                     <input type="number" name="jumlah_pinjaman" id="jumlah_pinjaman" step="0.01" min="0" class="form-control @error('jumlah_pinjaman') is-invalid @enderror" value="{{ old('jumlah_pinjaman', $pinjaman->jumlah_pinjaman) }}" placeholder="Jumlah pinjaman diajukan (Rupiah)">
+                    <div id="jp_plafon_alert" class="form-text text-danger small mt-1" style="display:none"></div>
                     @error('jumlah_pinjaman')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="tenor" class="form-label">Tenor (bulan) <span class="text-danger">*</span></label>
-                    <input type="number" name="tenor" id="tenor" min="1" step="1" class="form-control @error('tenor') is-invalid @enderror" value="{{ old('tenor', $pinjaman->tenor) }}" placeholder="Jumlah bulan (misal: 12)">
+                    <input type="number" name="tenor" id="tenor" min="1" step="1" class="form-control @error('tenor') is-invalid @enderror" value="{{ old('tenor', $pinjaman->tenor) }}" placeholder="Pilih jenis pinjaman terlebih dahulu">
+                    <div id="tenor_range_hint" class="form-text text-muted small mt-1"></div>
                     @error('tenor')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="bunga" class="form-label">Bunga (%) <span class="text-danger">*</span></label>
-                    <input type="number" name="bunga" id="bunga" step="0.01" min="0" max="100" class="form-control @error('bunga') is-invalid @enderror" value="{{ old('bunga', $pinjaman->bunga) }}" placeholder="Persen bunga per tahun (0-100)">
+                    <label for="bunga_display" class="form-label">Bunga (%) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <input type="number" id="bunga_display" step="0.01" min="0" max="100" class="form-control bg-light" value="{{ old('bunga', $pinjaman->bunga) }}" readonly disabled placeholder="Pilih jenis pinjaman terlebih dahulu">
+                        <span class="input-group-text" title="Nilai paten dari jenis pinjaman">Dari Jenis</span>
+                    </div>
+                    <input type="hidden" name="bunga" id="bunga" value="{{ old('bunga', $pinjaman->bunga) }}">
                     @error('bunga')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="angsuran_per_bulan" class="form-label">Angsuran Per Bulan <span class="text-danger">*</span></label>
-                    <input type="number" name="angsuran_per_bulan" id="angsuran_per_bulan" step="0.01" min="0" class="form-control @error('angsuran_per_bulan') is-invalid @enderror" value="{{ old('angsuran_per_bulan', $pinjaman->angsuran_per_bulan) }}" placeholder="Angsuran per bulan (Rupiah)">
+                    <label for="angsuran_display" class="form-label">Angsuran Per Bulan <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">Rp</span>
+                        <input type="number" id="angsuran_display" step="0.01" min="0" class="form-control bg-light" value="{{ old('angsuran_per_bulan', $pinjaman->angsuran_per_bulan) }}" readonly disabled placeholder="Otomatis dihitung sistem">
+                    </div>
+                    <input type="hidden" name="angsuran_per_bulan" id="angsuran_per_bulan" value="{{ old('angsuran_per_bulan', $pinjaman->angsuran_per_bulan) }}">
+                    <div class="form-text text-muted small mt-1">
+                        Dihitung otomatis sesuai rumus anuitas (jumlah, tenor, bunga tahunan).
+                    </div>
                     @error('angsuran_per_bulan')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
@@ -141,4 +154,138 @@
         </form>
     </div>
 </div>
+@endpush
+
+@push('scripts')
+<script>
+(function(){
+    var jpSel = document.getElementById('jenis_pinjaman_id');
+    var bungaHidden = document.getElementById('bunga');
+    var bungaDisplay = document.getElementById('bunga_display');
+    var tenorInput = document.getElementById('tenor');
+    var tenorRangeHint = document.getElementById('tenor_range_hint');
+    var jumlahInput = document.getElementById('jumlah_pinjaman');
+    var angsuranHidden = document.getElementById('angsuran_per_bulan');
+    var angsuranDisplay = document.getElementById('angsuran_display');
+    var jpHint = document.getElementById('jp_hint');
+    var plafonAlert = document.getElementById('jp_plafon_alert');
+
+    function formatRp(num) {
+        if (! isFinite(num)) num = 0;
+        num = Number(num) || 0;
+        var neg = num < 0;
+        var s = Math.abs(num).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return (neg ? '-Rp ' : 'Rp ') + s;
+    }
+    function hitungAngsuran(jumlah, bungaTahunan, tenor) {
+        jumlah = Number(jumlah) || 0;
+        bungaTahunan = Number(bungaTahunan) || 0;
+        tenor = parseInt(tenor, 10) || 0;
+        if (tenor <= 0) return 0;
+        if (bungaTahunan <= 0) return Math.round((jumlah / tenor) * 100) / 100;
+        var r = bungaTahunan / 100 / 12;
+        if (r <= 0) return Math.round((jumlah / tenor) * 100) / 100;
+        var pow = Math.pow(1 + r, tenor);
+        var denom = pow - 1;
+        if (denom <= 0) return Math.round((jumlah / tenor) * 100) / 100;
+        return Math.round(jumlah * (r * pow) / denom * 100) / 100;
+    }
+    function hitungDanSetAngsuran() {
+        var jumlah = Number(jumlahInput.value) || 0;
+        var tenor = parseInt(tenorInput.value, 10) || 0;
+        var bunga = Number(bungaHidden.value) || 0;
+        var perBulan = hitungAngsuran(jumlah, bunga, tenor);
+        angsuranHidden.value = perBulan > 0 ? perBulan.toFixed(2) : '';
+        angsuranDisplay.value = perBulan > 0 ? perBulan.toFixed(2) : '';
+        var opt = jpSel ? jpSel.options[jpSel.selectedIndex] : null;
+        if (opt && opt.value) {
+            var plafon = Number(opt.getAttribute('data-plafon')) || 0;
+            if (plafon > 0 && jumlah > plafon) {
+                plafonAlert.style.display = '';
+                plafonAlert.textContent = '⚠ Jumlah pinjaman melebihi plafon maksimal jenis ini: ' + formatRp(plafon);
+            } else {
+                plafonAlert.style.display = 'none';
+                plafonAlert.textContent = '';
+            }
+        } else if (plafonAlert) {
+            plafonAlert.style.display = 'none';
+            plafonAlert.textContent = '';
+        }
+    }
+    function clampTenorToRange(t, tMin, tMaks) {
+        if (isNaN(t) || t <= 0) return tMin;
+        if (t < tMin) return tMin;
+        if (t > tMaks) return tMaks;
+        return t;
+    }
+    function isiDariJenis() {
+        var opt = jpSel ? jpSel.options[jpSel.selectedIndex] : null;
+        if (! opt || ! opt.value) {
+            bungaHidden.value = '';
+            bungaDisplay.value = '';
+            if (tenorInput) {
+                tenorInput.min = '1';
+                tenorInput.removeAttribute('max');
+            }
+            if (tenorRangeHint) tenorRangeHint.textContent = '';
+            angsuranHidden.value = '';
+            angsuranDisplay.value = '';
+            if (jpHint) jpHint.textContent = '';
+            return;
+        }
+        var bunga = Number(opt.getAttribute('data-bunga')) || 0;
+        var tMin = parseInt(opt.getAttribute('data-tenor-min'), 10) || 1;
+        var tMaks = parseInt(opt.getAttribute('data-tenor-maks'), 10) || tMin;
+        var plafon = Number(opt.getAttribute('data-plafon')) || 0;
+        bungaHidden.value = bunga > 0 ? bunga.toFixed(2) : '0.00';
+        bungaDisplay.value = bunga > 0 ? bunga.toFixed(2) : '0.00';
+        if (tenorInput) {
+            tenorInput.min = String(tMin);
+            tenorInput.max = String(tMaks);
+            var tCurrent = parseInt(tenorInput.value, 10);
+            var defaultTenor = clampTenorToRange(tCurrent, tMin, tMaks);
+            if (! tCurrent || tCurrent < tMin || tCurrent > tMaks) {
+                tenorInput.value = String(defaultTenor);
+            }
+        }
+        if (tenorRangeHint) {
+            tenorRangeHint.textContent = 'Rentang diizinkan: ' + tMin + ' - ' + tMaks + ' bulan (bisa diubah manual dalam rentang ini).';
+        }
+        if (jpHint) {
+            jpHint.textContent =
+                'Bunga ' + bunga.toFixed(2) + '%/tahun (paten) · ' +
+                'Rentang tenor ' + tMin + '-' + tMaks + ' bulan' +
+                (plafon > 0 ? ' · Plafon maksimal ' + formatRp(plafon) : '');
+        }
+        hitungDanSetAngsuran();
+    }
+    if (jpSel) {
+        jpSel.addEventListener('change', function(){ isiDariJenis(); });
+        if (window.jQuery && window.$) {
+            $(jpSel).on('change select2:select select2:clear', function(){ isiDariJenis(); });
+        }
+    }
+    [jumlahInput, tenorInput].forEach(function(el){
+        if (! el) return;
+        el.addEventListener('input', function(){ hitungDanSetAngsuran(); });
+    });
+    document.addEventListener('DOMContentLoaded', function(){
+        isiDariJenis();
+        hitungDanSetAngsuran();
+    });
+    if (window.jQuery && window.$) {
+        $(document).ready(function(){
+            setTimeout(isiDariJenis, 150);
+            setTimeout(isiDariJenis, 400);
+            setTimeout(hitungDanSetAngsuran, 200);
+            setTimeout(hitungDanSetAngsuran, 500);
+        });
+    } else {
+        setTimeout(isiDariJenis, 200);
+        setTimeout(isiDariJenis, 500);
+        setTimeout(hitungDanSetAngsuran, 250);
+        setTimeout(hitungDanSetAngsuran, 550);
+    }
+})();
+</script>
 @endpush
