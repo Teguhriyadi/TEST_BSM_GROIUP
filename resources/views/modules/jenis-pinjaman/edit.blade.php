@@ -79,11 +79,11 @@
                         </div>
                         @enderror
                     </div>
-                    @haspermission('JENIS_PINJAMAN_PERSYARATAN_DOKUMEN')
-                    <div id="persyaratan-dokumen">
-                        @include('modules.jenis-pinjaman.form-persyaratan-dokumen')
+                    <div class="alert alert-info small mb-4 p-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Pengaturan persyaratan dokumen untuk jenis pinjaman ini sekarang dikelola secara dinamis melalui menu
+                        <strong>Master Dokumen &rarr; Setting Persyaratan Pinjaman</strong>.
                     </div>
-                    @endhaspermission
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-orange">
                             <i class="bi bi-save me-1"></i> Simpan Data

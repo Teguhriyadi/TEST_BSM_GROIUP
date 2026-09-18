@@ -60,6 +60,20 @@ return [
             'report' => false,
         ],
 
+        'neo' => [
+            'driver' => 's3',
+            'key' => env('SATSETSOLUTION_ACCESS_KEY'),
+            'secret' => env('SATSETSOLUTION_SECRET_KEY'),
+            'region' => env('SATSETSOLUTION_DEFAULT_REGION', 'wjv-1'),
+            'bucket' => env('SATSETSOLUTION_BUCKET', 'image-storage'),
+            'url' => env('SATSETSOLUTION_URL'),
+            'endpoint' => env('SATSETSOLUTION_ENDPOINT', 'https://nos.wjv-1.neo.id'),
+            'use_path_style_endpoint' => env('SATSETSOLUTION_USE_PATH_STYLE_ENDPOINT', true),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
 
     /*

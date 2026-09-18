@@ -215,6 +215,296 @@
 
         <hr class="sidebar-divider my-2" style="border-color: rgba(255,255,255,0.12);">
 
+        @php
+            $bisaJurnal = auth()->user()->hasPermission('JURNAL_INDEX');
+            $bisaJurnalHarian = auth()->user()->hasPermission('JURNAL_HARIAN_VIEW');
+            $bisaCoa = auth()->user()->hasPermission('COA_INDEX');
+            $bisaBukuBesar = auth()->user()->hasPermission('BUKU_BESAR_INDEX');
+            $bisaRekapKas = auth()->user()->hasPermission('REKAP_KAS_VIEW');
+            $bisaBukuKas = auth()->user()->hasPermission('BUKU_KAS_VIEW');
+            $bisaLRKum = auth()->user()->hasPermission('LABA_RUGI_KUMULATIF_VIEW');
+            $bisaLRPer = auth()->user()->hasPermission('LABA_RUGI_PERIODE_VIEW');
+            $bisaNeraca = auth()->user()->hasPermission('NERACA_VIEW');
+            $bisaNeracaSaldo = auth()->user()->hasPermission('NERACA_SALDO_VIEW');
+            $bisaTutupBuku = auth()->user()->hasPermission('TUTUP_BUKU_EXEC');
+            $bisaCekNS = auth()->user()->hasPermission('CEK_NERACA_SALDO_VIEW');
+            $bisaShu = auth()->user()->hasPermission('LAP_SHU_VIEW');
+            $bisaArusKas = auth()->user()->hasPermission('LAP_ARUS_KAS_VIEW');
+            $bisaMapping = auth()->user()->hasPermission('COA_MAPPING_INDEX');
+            $bisaSaldoAwal = auth()->user()->hasPermission('COA_SALDO_AWAL_INDEX');
+            $adaMenuAkuntansi = $bisaJurnal || $bisaJurnalHarian || $bisaCoa || $bisaBukuBesar || $bisaRekapKas || $bisaBukuKas
+                || $bisaLRKum || $bisaLRPer || $bisaNeraca || $bisaNeracaSaldo || $bisaTutupBuku || $bisaCekNS
+                || $bisaMapping || $bisaSaldoAwal;
+            $adaMenuLapAkunting = $bisaNeraca || $bisaShu || $bisaArusKas;
+            $adaSubAkuntansi = $bisaJurnal || $bisaJurnalHarian || $bisaCoa || $bisaBukuBesar || $bisaRekapKas || $bisaBukuKas
+                || $bisaLRKum || $bisaLRPer || $bisaNeraca || $bisaNeracaSaldo || $bisaTutupBuku || $bisaCekNS;
+        @endphp
+
+        @if ($adaMenuAkuntansi)
+        <style>
+            #collapseAkuntansi .collapse-item,
+            #collapseLapAkunting .collapse-item {
+                color: #495057;
+                padding: 0.5rem 1rem;
+                margin: 2px 8px;
+                border-radius: 0.375rem;
+                text-decoration: none;
+                display: flex;
+                align-items: center;
+                transition: background-color 0.15s ease, color 0.15s ease;
+            }
+            #collapseAkuntansi .collapse-item:hover,
+            #collapseLapAkunting .collapse-item:hover {
+                background-color: #f8f9fa;
+                color: #212529;
+            }
+            #collapseAkuntansi .collapse-item.active,
+            #collapseLapAkunting .collapse-item.active {
+                background-color: #f97316;
+                color: #ffffff !important;
+                font-weight: 600;
+            }
+        </style>
+
+        <div class="sidebar-heading mt-3 mb-2"
+            style="color: rgba(255,255,255,0.82); font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;">
+            AKUNTANSI
+        </div>
+
+        @if ($adaSubAkuntansi)
+        <li class="nav-item">
+            @php
+                $akuntansiActive = request()->routeIs('jurnal-umum.*')
+                    || request()->routeIs('jurnal-harian.*')
+                    || request()->routeIs('coa.*')
+                    || request()->routeIs('coa-mapping.*')
+                    || request()->routeIs('coa-saldo-awal.*')
+                    || request()->routeIs('buku-besar.*')
+                    || request()->routeIs('rekap-kas-non-kas.*')
+                    || request()->routeIs('buku-kas-harian.*')
+                    || request()->routeIs('laba-rugi.*')
+                    || request()->routeIs('neraca.*')
+                    || request()->routeIs('neraca-saldo.*')
+                    || request()->routeIs('tutup-buku.*')
+                    || request()->routeIs('cek-neraca-saldo.*');
+            @endphp
+            <a class="nav-link {{ $akuntansiActive ? 'active' : 'collapsed' }}" href="#" data-bs-toggle="collapse"
+                data-bs-target="#collapseAkuntansi" aria-expanded="{{ $akuntansiActive ? 'true' : 'false' }}"
+                aria-controls="collapseAkuntansi">
+                <i class="bi bi-journal-bookmark-fill"></i>
+                <span>Akuntansi</span>
+            </a>
+            <div id="collapseAkuntansi" class="collapse {{ $akuntansiActive ? 'show' : '' }}"
+                aria-labelledby="headingAkuntansi" data-parent="#accordionSidebar">
+                <div class="py-2 collapse-inner rounded"
+                    style="background-color: #ffffff; border: 1px solid rgba(0,0,0,0.08);">
+                    @if ($bisaJurnal)
+                    <a class="collapse-item {{ request()->routeIs('jurnal-umum.*') ? 'active' : '' }}"
+                        href="{{ route('jurnal-umum.index') }}">
+                        <i class="bi bi-journal-text pe-2"></i>Jurnal
+                    </a>
+                    @endif
+
+                    @if ($bisaJurnalHarian)
+                    <a class="collapse-item {{ request()->routeIs('jurnal-harian.*') ? 'active' : '' }}"
+                        href="{{ route('jurnal-harian.index') }}">
+                        <i class="bi bi-calendar-event pe-2"></i>Jurnal Harian
+                    </a>
+                    @endif
+
+                    @if ($bisaCoa)
+                    <a class="collapse-item {{ request()->routeIs('coa.*') ? 'active' : '' }}"
+                        href="{{ route('coa.index') }}">
+                        <i class="bi bi-diagram-3 pe-2"></i>Perkiraan
+                    </a>
+                    @endif
+
+                    @if ($bisaMapping)
+                    <a class="collapse-item {{ request()->routeIs('coa-mapping.*') ? 'active' : '' }}"
+                        href="{{ route('coa-mapping.index') }}">
+                        <i class="bi bi-link-45deg pe-2"></i>Mapping Akun
+                    </a>
+                    @endif
+
+                    @if ($bisaSaldoAwal)
+                    <a class="collapse-item {{ request()->routeIs('coa-saldo-awal.*') ? 'active' : '' }}"
+                        href="{{ route('coa-saldo-awal.index') }}">
+                        <i class="bi bi-coin pe-2"></i>Saldo Awal
+                    </a>
+                    @endif
+
+                    @if ($bisaBukuBesar)
+                    <a class="collapse-item {{ request()->routeIs('buku-besar.*') ? 'active' : '' }}"
+                        href="{{ route('buku-besar.index') }}">
+                        <i class="bi bi-book pe-2"></i>Buku Besar
+                    </a>
+                    @endif
+
+                    @if ($bisaRekapKas)
+                    <a class="collapse-item {{ request()->routeIs('rekap-kas-non-kas.*') ? 'active' : '' }}"
+                        href="{{ route('rekap-kas-non-kas.index') }}">
+                        <i class="bi bi-cash-stack pe-2"></i>Rekap Kas dan Non Kas Harian
+                    </a>
+                    @endif
+
+                    @if ($bisaBukuKas)
+                    <a class="collapse-item {{ request()->routeIs('buku-kas-harian.*') ? 'active' : '' }}"
+                        href="{{ route('buku-kas-harian.index') }}">
+                        <i class="bi bi-wallet2 pe-2"></i>Buku Kas Harian
+                    </a>
+                    @endif
+
+                    @if ($bisaLRKum)
+                    <a class="collapse-item {{ request()->routeIs('laba-rugi.kumulatif') ? 'active' : '' }}"
+                        href="{{ route('laba-rugi.kumulatif') }}">
+                        <i class="bi bi-graph-up-arrow pe-2"></i>Laba Rugi Kumulatif
+                    </a>
+                    @endif
+
+                    @if ($bisaLRPer)
+                    <a class="collapse-item {{ request()->routeIs('laba-rugi.periode') ? 'active' : '' }}"
+                        href="{{ route('laba-rugi.periode') }}">
+                        <i class="bi bi-bar-chart-line pe-2"></i>Laba Rugi Periode
+                    </a>
+                    @endif
+
+                    @if ($bisaNeraca)
+                    <a class="collapse-item {{ request()->routeIs('neraca.*') && !request()->routeIs('laporan-akunting.*') ? 'active' : '' }}"
+                        href="{{ route('neraca.index') }}">
+                        <i class="bi bi-bar-chart-steps pe-2"></i>Neraca
+                    </a>
+                    @endif
+
+                    @if ($bisaNeracaSaldo)
+                    <a class="collapse-item {{ request()->routeIs('neraca-saldo.*') ? 'active' : '' }}"
+                        href="{{ route('neraca-saldo.index') }}">
+                        <i class="bi bi-arrow-left-right pe-2"></i>Neraca Saldo
+                    </a>
+                    @endif
+
+                    @if ($bisaTutupBuku)
+                    <a class="collapse-item {{ request()->routeIs('tutup-buku.*') ? 'active' : '' }}"
+                        href="{{ route('tutup-buku.index') }}">
+                        <i class="bi bi-door-closed pe-2"></i>Tutup Buku
+                    </a>
+                    @endif
+
+                    @if ($bisaCekNS)
+                    <a class="collapse-item {{ request()->routeIs('cek-neraca-saldo.*') ? 'active' : '' }}"
+                        href="{{ route('cek-neraca-saldo.index') }}">
+                        <i class="bi bi-check2-circle pe-2"></i>Cek Neraca dan Saldo
+                    </a>
+                    @endif
+                </div>
+            </div>
+        </li>
+        @endif
+
+        <hr class="sidebar-divider my-2" style="border-color: rgba(255,255,255,0.12);">
+        @endif
+
+        @if ($adaMenuLapAkunting)
+        <div class="sidebar-heading mt-3 mb-2"
+            style="color: rgba(255,255,255,0.82); font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;">
+            LAPORAN AKUNTING
+        </div>
+
+        <li class="nav-item">
+            @php
+                $lapAkuntingActive = request()->routeIs('laporan-akunting.*');
+            @endphp
+            <a class="nav-link {{ $lapAkuntingActive ? 'active' : 'collapsed' }}" href="#" data-bs-toggle="collapse"
+                data-bs-target="#collapseLapAkunting" aria-expanded="{{ $lapAkuntingActive ? 'true' : 'false' }}"
+                aria-controls="collapseLapAkunting">
+                <i class="bi bi-file-earmark-bar-graph"></i>
+                <span>Laporan Akunting</span>
+            </a>
+            <div id="collapseLapAkunting" class="collapse {{ $lapAkuntingActive ? 'show' : '' }}"
+                aria-labelledby="headingLapAkunting" data-parent="#accordionSidebar">
+                <div class="py-2 collapse-inner rounded"
+                    style="background-color: #ffffff; border: 1px solid rgba(0,0,0,0.08);">
+                    @if ($bisaNeraca)
+                    <a class="collapse-item {{ request()->routeIs('laporan-akunting.neraca') ? 'active' : '' }}"
+                        href="{{ route('laporan-akunting.neraca') }}">
+                        <i class="bi bi-bar-chart-steps pe-2"></i>Neraca
+                    </a>
+                    @endif
+
+                    @if ($bisaShu)
+                    <a class="collapse-item {{ request()->routeIs('laporan-akunting.shu') ? 'active' : '' }}"
+                        href="{{ route('laporan-akunting.shu') }}">
+                        <i class="bi bi-piggy-bank pe-2"></i>Sisa Hasil Usaha
+                    </a>
+                    @endif
+
+                    @if ($bisaArusKas)
+                    <a class="collapse-item {{ request()->routeIs('laporan-akunting.arus-kas') ? 'active' : '' }}"
+                        href="{{ route('laporan-akunting.arus-kas') }}">
+                        <i class="bi bi-send-exclamation pe-2"></i>Arus Kas
+                    </a>
+                    @endif
+                </div>
+            </div>
+        </li>
+
+        <hr class="sidebar-divider my-2" style="border-color: rgba(255,255,255,0.12);">
+        @endif
+
+        @php
+            $bisaMasterDok = auth()->user()->hasPermission('MASTER_DOKUMEN_INDEX');
+            $bisaSettingPer = auth()->user()->hasPermission('SETTING_PERSYARATAN_INDEX');
+            $bisaSimulasi = auth()->user()->hasPermission('SIMULASI_PINJAMAN_VIEW');
+            $adaMenuMasterDok = $bisaMasterDok || $bisaSettingPer;
+        @endphp
+
+        @if ($adaMenuMasterDok)
+        <div class="sidebar-heading mt-3 mb-2"
+            style="color: rgba(255,255,255,0.82); font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;">
+            MASTER DOKUMEN
+        </div>
+
+        @haspermission('MASTER_DOKUMEN_INDEX')
+        <li class="nav-item">
+            <a class="nav-link {{ request()->routeIs('master-dokumen.*') ? 'active' : '' }}"
+                href="{{ route('master-dokumen.index') }}">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Daftar Master Dokumen</span>
+            </a>
+        </li>
+        @endhaspermission
+
+        @haspermission('SETTING_PERSYARATAN_INDEX')
+        <li class="nav-item">
+            <a class="nav-link {{ request()->routeIs('setting-persyaratan-pinjaman.*') ? 'active' : '' }}"
+                href="{{ route('setting-persyaratan-pinjaman.index') }}">
+                <i class="bi bi-list-check"></i>
+                <span>Setting Persyaratan Pinjaman</span>
+            </a>
+        </li>
+        @endhaspermission
+
+        <hr class="sidebar-divider my-2" style="border-color: rgba(255,255,255,0.12);">
+        @endif
+
+        @if ($bisaSimulasi)
+        <div class="sidebar-heading mt-3 mb-2"
+            style="color: rgba(255,255,255,0.82); font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;">
+            SIMULASI
+        </div>
+
+        @haspermission('SIMULASI_PINJAMAN_VIEW')
+        <li class="nav-item">
+            <a class="nav-link {{ request()->routeIs('simulasi-pinjaman.*') ? 'active' : '' }}"
+                href="{{ route('simulasi-pinjaman.index') }}">
+                <i class="bi bi-calculator"></i>
+                <span>Simulasi Pinjaman</span>
+            </a>
+        </li>
+        @endhaspermission
+
+        <hr class="sidebar-divider my-2" style="border-color: rgba(255,255,255,0.12);">
+        @endif
+
         <style>
             #collapseLaporan .collapse-item {
                 color: #495057;

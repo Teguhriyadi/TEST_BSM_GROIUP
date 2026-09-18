@@ -60,12 +60,28 @@
                     <select name="jenis_pinjaman_id" id="jenis_pinjaman_id" class="form-select select2 @error('jenis_pinjaman_id') is-invalid @enderror" data-auto-fill-targets="true">
                         <option value="">-- Pilih Jenis Pinjaman --</option>
                         @foreach($jenisPinjaman as $jp)
+                        @php
+                            $dokList = [];
+                            foreach (($jp->dokumenPersyaratan ?? collect()) as $md) {
+                                $dokList[] = [
+                                    'id' => (string) $md->id,
+                                    'kode' => $md->kode_dokumen ?? '',
+                                    'nama' => $md->nama_dokumen ?? 'Dokumen',
+                                    'deskripsi' => $md->deskripsi ?? '',
+                                    'format' => $md->format_diperbolehkan ?? 'jpg,jpeg,png,pdf',
+                                    'is_wajib' => (bool) ($md->pivot?->is_wajib ?? false),
+                                    'urutan' => (int) ($md->pivot?->urutan ?? 999),
+                                ];
+                            }
+                            usort($dokList, fn($a,$b) => $a['urutan'] - $b['urutan']);
+                        @endphp
                         <option value="{{ $jp->id }}"
                             {{ old('jenis_pinjaman_id') == $jp->id ? 'selected' : '' }}
                             data-bunga="{{ number_format((float) $jp->bunga_tahunan, 2, '.', '') }}"
                             data-tenor-min="{{ (int) $jp->tenor_minimal }}"
                             data-tenor-maks="{{ (int) $jp->tenor_maksimal }}"
-                            data-plafon="{{ number_format((float) $jp->maksimal_plafon, 2, '.', '') }}">
+                            data-plafon="{{ number_format((float) $jp->maksimal_plafon, 2, '.', '') }}"
+                            data-dokumen='@json($dokList)'>
                             {{ $jp->nama_jenis }}
                             (Bunga {{ (float) $jp->bunga_tahunan }}%/thn ·
                             Tenor {{ (int) $jp->tenor_minimal }}-{{ (int) $jp->tenor_maksimal }} bln ·
@@ -77,6 +93,7 @@
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
                     <div id="jp_hint" class="form-text text-muted small mt-1"></div>
+                    <div id="jp_dokumen_panel" class="mt-3"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="jumlah_pinjaman" class="form-label">Jumlah Pinjaman <span class="text-danger">*</span></label>
@@ -196,6 +213,52 @@
     var angsuranDisplay = document.getElementById('angsuran_display');
     var jpHint = document.getElementById('jp_hint');
     var plafonAlert = document.getElementById('jp_plafon_alert');
+    var dokumenPanel = document.getElementById('jp_dokumen_panel');
+
+    function renderDokumenPanel(dokList) {
+        if (! dokumenPanel) return;
+        dokumenPanel.innerHTML = '';
+        if (! Array.isArray(dokList) || dokList.length === 0) {
+            dokumenPanel.innerHTML = '';
+            return;
+        }
+        var wajibCount = dokList.filter(function(d){ return d.is_wajib; }).length;
+        var opsCount = dokList.length - wajibCount;
+        var summaryHtml =
+            '<div class="card border border-primary bg-light shadow-sm">' +
+            '  <div class="card-header py-2 px-3 bg-primary text-white d-flex flex-wrap align-items-center justify-content-between gap-2">' +
+            '    <div class="fw-semibold"><i class="bi bi-files me-1"></i> Daftar Persyaratan Dokumen Jenis Ini</div>' +
+            '    <div class="small">' +
+                    (wajibCount > 0 ? '<span class="badge bg-orange text-white py-0.5 px-2 me-1">Wajib ' + wajibCount + '</span>' : '') +
+                    (opsCount > 0 ? '<span class="badge bg-secondary text-white py-0.5 px-2">Opsional ' + opsCount + '</span>' : '') +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="card-body p-3">';
+        summaryHtml += '<ul class="list-group list-group-flush small p-0 m-0">';
+        dokList.forEach(function(d, idx) {
+            var badge = d.is_wajib
+                ? '<span class="badge bg-orange text-white py-0.5 px-2 ms-1">Wajib</span>'
+                : '<span class="badge bg-secondary text-white py-0.5 px-2 ms-1">Opsional</span>';
+            var formatTxt = (d.format || '').trim().toUpperCase().replace(/,/g, ', ');
+            summaryHtml +=
+                '<li class="list-group-item px-0 py-2 border-start-0 border-end-0 border-top-0 d-flex flex-column gap-1">' +
+                '  <div class="d-flex flex-wrap align-items-center gap-1">' +
+                '    <span class="fw-semibold text-gray-800">' + (idx + 1) + '. ' + (d.nama || 'Dokumen') + '</span>' + badge +
+                (d.kode ? ' <small class="text-muted">(' + (d.kode) + ')</small>' : '') +
+                '  </div>' +
+                (d.deskripsi ? '  <div class="text-muted small">' + d.deskripsi + '</div>' : '') +
+                (formatTxt ? '  <div class="text-muted small">Format yang diperbolehkan: ' + formatTxt + '</div>' : '') +
+                '</li>';
+        });
+        summaryHtml += '</ul>';
+        summaryHtml +=
+            '    <div class="small text-muted mt-2">' +
+            '      <i class="bi bi-info-circle me-1"></i>' +
+            '      Unggah semua dokumen di atas setelah data pinjaman berhasil disimpan (halaman detail pengajuan). Dokumen wajib harus diunggah sebelum pengajuan bisa diverifikasi.' +
+            '    </div>';
+        summaryHtml += '  </div></div>';
+        dokumenPanel.innerHTML = summaryHtml;
+    }
 
     function formatRp(num) {
         if (! isFinite(num)) num = 0;
@@ -258,12 +321,19 @@
             angsuranHidden.value = '';
             angsuranDisplay.value = '';
             if (jpHint) jpHint.textContent = '';
+            renderDokumenPanel([]);
             return;
         }
         var bunga = Number(opt.getAttribute('data-bunga')) || 0;
         var tMin = parseInt(opt.getAttribute('data-tenor-min'), 10) || 1;
         var tMaks = parseInt(opt.getAttribute('data-tenor-maks'), 10) || tMin;
         var plafon = Number(opt.getAttribute('data-plafon')) || 0;
+        var dokRaw = opt.getAttribute('data-dokumen');
+        var dokList = [];
+        try {
+            if (dokRaw) dokList = JSON.parse(dokRaw);
+        } catch (e) { dokList = []; }
+        renderDokumenPanel(dokList);
         bungaHidden.value = bunga > 0 ? bunga.toFixed(2) : '0.00';
         bungaDisplay.value = bunga > 0 ? bunga.toFixed(2) : '0.00';
         if (tenorInput) {
@@ -304,12 +374,14 @@
         $(document).ready(function(){
             setTimeout(isiDariJenis, 150);
             setTimeout(isiDariJenis, 400);
+            setTimeout(isiDariJenis, 800);
             setTimeout(hitungDanSetAngsuran, 200);
             setTimeout(hitungDanSetAngsuran, 500);
         });
     } else {
         setTimeout(isiDariJenis, 200);
         setTimeout(isiDariJenis, 500);
+        setTimeout(isiDariJenis, 900);
         setTimeout(hitungDanSetAngsuran, 250);
         setTimeout(hitungDanSetAngsuran, 550);
     }

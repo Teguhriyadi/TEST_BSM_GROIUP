@@ -5,16 +5,34 @@ use App\Http\Controllers\AngsuranController;
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\AktivitasLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BukuBesarController;
 use App\Http\Controllers\CabangController;
+use App\Http\Controllers\CoaController;
+use App\Http\Controllers\CoaMappingController;
+use App\Http\Controllers\CoaSaldoAwalController;
 use App\Http\Controllers\JenisPinjamanController;
 use App\Http\Controllers\JenisSimpananController;
+use App\Http\Controllers\JurnalUmumController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\NeracaController;
 use App\Http\Controllers\PembayaranAngsuranController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PinjamanController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SimpananController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\MasterDokumenController;
+use App\Http\Controllers\SimulasiPinjamanController;
+use App\Http\Controllers\SettingPersyaratanPinjamanController;
+use App\Http\Controllers\JurnalHarianController;
+use App\Http\Controllers\RekapKasNonKasController;
+use App\Http\Controllers\BukuKasHarianController;
+use App\Http\Controllers\LabaRugiController;
+use App\Http\Controllers\NeracaSaldoController;
+use App\Http\Controllers\TutupBukuController;
+use App\Http\Controllers\CekNeracaSaldoController;
+use App\Http\Controllers\ShuController;
+use App\Http\Controllers\ArusKasController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -144,6 +162,66 @@ Route::middleware(['web', 'autentikasi'])->group(function () {
         Route::match(['put', 'patch'], 'pembayaran-angsuran/{pembayaranAngsuran}', [PembayaranAngsuranController::class, 'update'])->name('pembayaran-angsuran.update')->middleware('permission:PEMBAYARAN_UPDATE');
         Route::delete('pembayaran-angsuran/{pembayaranAngsuran}', [PembayaranAngsuranController::class, 'destroy'])->name('pembayaran-angsuran.destroy')->middleware('permission:PEMBAYARAN_DELETE');
 
+        Route::match(['get', 'post'], 'coa', [CoaController::class, 'index'])->name('coa.index')->middleware('permission:COA_INDEX');
+        Route::get('coa/create', [CoaController::class, 'create'])->name('coa.create')->middleware('permission:COA_CREATE');
+        Route::post('coa', [CoaController::class, 'store'])->name('coa.store')->middleware('permission:COA_CREATE');
+        Route::get('coa/{coa}', [CoaController::class, 'show'])->name('coa.show')->middleware('permission:COA_VIEW');
+        Route::get('coa/{coa}/edit', [CoaController::class, 'edit'])->name('coa.edit')->middleware('permission:COA_UPDATE');
+        Route::match(['put', 'patch'], 'coa/{coa}', [CoaController::class, 'update'])->name('coa.update')->middleware('permission:COA_UPDATE');
+        Route::delete('coa/{coa}', [CoaController::class, 'destroy'])->name('coa.destroy')->middleware('permission:COA_DELETE');
+
+        Route::match(['get', 'post'], 'coa-mapping', [CoaMappingController::class, 'index'])->name('coa-mapping.index')->middleware('permission:COA_MAPPING_INDEX');
+        Route::match(['put', 'patch', 'post'], 'coa-mapping/update', [CoaMappingController::class, 'update'])->name('coa-mapping.update')->middleware('permission:COA_MAPPING_UPDATE');
+
+        Route::match(['get', 'post'], 'coa-saldo-awal', [CoaSaldoAwalController::class, 'index'])->name('coa-saldo-awal.index')->middleware('permission:COA_SALDO_AWAL_INDEX');
+        Route::match(['put', 'patch', 'post'], 'coa-saldo-awal/update', [CoaSaldoAwalController::class, 'update'])->name('coa-saldo-awal.update')->middleware('permission:COA_SALDO_AWAL_UPDATE');
+
+        Route::match(['get', 'post'], 'jurnal-umum', [JurnalUmumController::class, 'index'])->name('jurnal-umum.index')->middleware('permission:JURNAL_INDEX');
+        Route::get('jurnal-umum/create', [JurnalUmumController::class, 'create'])->name('jurnal-umum.create')->middleware('permission:JURNAL_CREATE');
+        Route::post('jurnal-umum', [JurnalUmumController::class, 'store'])->name('jurnal-umum.store')->middleware('permission:JURNAL_CREATE');
+        Route::get('jurnal-umum/{jurnalUmum}', [JurnalUmumController::class, 'show'])->name('jurnal-umum.show')->middleware('permission:JURNAL_VIEW');
+        Route::get('jurnal-umum/{jurnalUmum}/edit', [JurnalUmumController::class, 'edit'])->name('jurnal-umum.edit')->middleware('permission:JURNAL_UPDATE');
+        Route::match(['put', 'patch'], 'jurnal-umum/{jurnalUmum}', [JurnalUmumController::class, 'update'])->name('jurnal-umum.update')->middleware('permission:JURNAL_UPDATE');
+        Route::post('jurnal-umum/{jurnalUmum}/posting', [JurnalUmumController::class, 'posting'])->name('jurnal-umum.posting')->middleware('permission:JURNAL_POSTING');
+        Route::delete('jurnal-umum/{jurnalUmum}', [JurnalUmumController::class, 'destroy'])->name('jurnal-umum.destroy')->middleware('permission:JURNAL_DELETE');
+
+        Route::match(['get', 'post'], 'buku-besar', [BukuBesarController::class, 'index'])->name('buku-besar.index')->middleware('permission:BUKU_BESAR_INDEX');
+
+        Route::match(['get', 'post'], 'neraca', [NeracaController::class, 'index'])->name('neraca.index')->middleware('permission:NERACA_VIEW');
+
+        Route::match(['get', 'post'], 'master-dokumen', [MasterDokumenController::class, 'index'])->name('master-dokumen.index')->middleware('permission:MASTER_DOKUMEN_INDEX');
+        Route::get('master-dokumen/create', [MasterDokumenController::class, 'create'])->name('master-dokumen.create')->middleware('permission:MASTER_DOKUMEN_CREATE');
+        Route::post('master-dokumen', [MasterDokumenController::class, 'store'])->name('master-dokumen.store')->middleware('permission:MASTER_DOKUMEN_CREATE');
+        Route::get('master-dokumen/{masterDokumen}', [MasterDokumenController::class, 'show'])->name('master-dokumen.show')->middleware('permission:MASTER_DOKUMEN_VIEW');
+        Route::get('master-dokumen/{masterDokumen}/edit', [MasterDokumenController::class, 'edit'])->name('master-dokumen.edit')->middleware('permission:MASTER_DOKUMEN_UPDATE');
+        Route::match(['put', 'patch'], 'master-dokumen/{masterDokumen}', [MasterDokumenController::class, 'update'])->name('master-dokumen.update')->middleware('permission:MASTER_DOKUMEN_UPDATE');
+        Route::delete('master-dokumen/{masterDokumen}', [MasterDokumenController::class, 'destroy'])->name('master-dokumen.destroy')->middleware('permission:MASTER_DOKUMEN_DELETE');
+
+        Route::match(['get', 'post'], 'setting-persyaratan-pinjaman', [SettingPersyaratanPinjamanController::class, 'index'])->name('setting-persyaratan-pinjaman.index')->middleware('permission:SETTING_PERSYARATAN_INDEX');
+        Route::match(['put', 'patch', 'post'], 'setting-persyaratan-pinjaman/update/{jenisPinjaman}', [SettingPersyaratanPinjamanController::class, 'update'])->name('setting-persyaratan-pinjaman.update')->middleware('permission:SETTING_PERSYARATAN_UPDATE');
+
+        Route::match(['get', 'post'], 'simulasi-pinjaman', [SimulasiPinjamanController::class, 'index'])->name('simulasi-pinjaman.index')->middleware('permission:SIMULASI_PINJAMAN_VIEW');
+
+        Route::match(['get', 'post'], 'jurnal-harian', [JurnalHarianController::class, 'index'])->name('jurnal-harian.index')->middleware('permission:JURNAL_HARIAN_VIEW');
+
+        Route::match(['get', 'post'], 'rekap-kas-non-kas', [RekapKasNonKasController::class, 'index'])->name('rekap-kas-non-kas.index')->middleware('permission:REKAP_KAS_VIEW');
+
+        Route::match(['get', 'post'], 'buku-kas-harian', [BukuKasHarianController::class, 'index'])->name('buku-kas-harian.index')->middleware('permission:BUKU_KAS_VIEW');
+
+        Route::match(['get', 'post'], 'laba-rugi/periode', [LabaRugiController::class, 'periode'])->name('laba-rugi.periode')->middleware('permission:LABA_RUGI_PERIODE_VIEW');
+        Route::match(['get', 'post'], 'laba-rugi/kumulatif', [LabaRugiController::class, 'kumulatif'])->name('laba-rugi.kumulatif')->middleware('permission:LABA_RUGI_KUMULATIF_VIEW');
+
+        Route::match(['get', 'post'], 'neraca-saldo', [NeracaSaldoController::class, 'index'])->name('neraca-saldo.index')->middleware('permission:NERACA_SALDO_VIEW');
+
+        Route::match(['get', 'post'], 'tutup-buku', [TutupBukuController::class, 'index'])->name('tutup-buku.index')->middleware('permission:TUTUP_BUKU_EXEC');
+        Route::post('tutup-buku/proses', [TutupBukuController::class, 'proses'])->name('tutup-buku.proses')->middleware('permission:TUTUP_BUKU_EXEC');
+
+        Route::match(['get', 'post'], 'cek-neraca-saldo', [CekNeracaSaldoController::class, 'index'])->name('cek-neraca-saldo.index')->middleware('permission:CEK_NERACA_SALDO_VIEW');
+
+        Route::match(['get', 'post'], 'laporan-akunting/neraca', [NeracaController::class, 'index'])->name('laporan-akunting.neraca')->middleware('permission:NERACA_VIEW');
+        Route::match(['get', 'post'], 'laporan-akunting/shu', [ShuController::class, 'index'])->name('laporan-akunting.shu')->middleware('permission:LAP_SHU_VIEW');
+        Route::match(['get', 'post'], 'laporan-akunting/arus-kas', [ArusKasController::class, 'index'])->name('laporan-akunting.arus-kas')->middleware('permission:LAP_ARUS_KAS_VIEW');
+
         Route::match(['get','post'],'laporan/anggota', [LaporanController::class, 'anggotaIndex'])
             ->name('laporan.anggota')
             ->middleware('permission:LAPORAN_ANGGOTA_INDEX');
@@ -185,6 +263,49 @@ Route::middleware(['web', 'autentikasi'])->group(function () {
         Route::post('laporan/pembayaran-angsuran/export-pdf', [LaporanController::class, 'pembayaranExportPdf'])
             ->name('laporan.pembayaran.exportPdf')
             ->middleware('permission:LAPORAN_PEMBAYARAN_EXPORT');
+
+        // ==================== EXPORT PDF & EXCEL - MODUL AKUNTANSI & LAPORAN AKUNTING ====================
+        Route::get('coa/export-pdf', [CoaController::class, 'exportPdf'])->name('coa.exportPdf')->middleware('permission:COA_INDEX');
+        Route::get('coa/export-excel', [CoaController::class, 'exportExcel'])->name('coa.exportExcel')->middleware('permission:COA_INDEX');
+
+        Route::get('coa-mapping/export-pdf', [CoaMappingController::class, 'exportPdf'])->name('coa-mapping.exportPdf')->middleware('permission:COA_MAPPING_INDEX');
+        Route::get('coa-mapping/export-excel', [CoaMappingController::class, 'exportExcel'])->name('coa-mapping.exportExcel')->middleware('permission:COA_MAPPING_INDEX');
+
+        Route::get('coa-saldo-awal/export-pdf', [CoaSaldoAwalController::class, 'exportPdf'])->name('coa-saldo-awal.exportPdf')->middleware('permission:COA_SALDO_AWAL_INDEX');
+        Route::get('coa-saldo-awal/export-excel', [CoaSaldoAwalController::class, 'exportExcel'])->name('coa-saldo-awal.exportExcel')->middleware('permission:COA_SALDO_AWAL_INDEX');
+
+        Route::get('jurnal-umum/export-pdf', [JurnalUmumController::class, 'exportPdf'])->name('jurnal-umum.exportPdf')->middleware('permission:JURNAL_INDEX');
+        Route::get('jurnal-umum/export-excel', [JurnalUmumController::class, 'exportExcel'])->name('jurnal-umum.exportExcel')->middleware('permission:JURNAL_INDEX');
+
+        Route::get('buku-besar/export-pdf', [BukuBesarController::class, 'exportPdf'])->name('buku-besar.exportPdf')->middleware('permission:BUKU_BESAR_INDEX');
+        Route::get('buku-besar/export-excel', [BukuBesarController::class, 'exportExcel'])->name('buku-besar.exportExcel')->middleware('permission:BUKU_BESAR_INDEX');
+
+        Route::get('neraca/export-pdf', [NeracaController::class, 'exportPdf'])->name('neraca.exportPdf')->middleware('permission:NERACA_VIEW');
+        Route::get('neraca/export-excel', [NeracaController::class, 'exportExcel'])->name('neraca.exportExcel')->middleware('permission:NERACA_VIEW');
+
+        Route::get('jurnal-harian/export-pdf', [JurnalHarianController::class, 'exportPdf'])->name('jurnal-harian.exportPdf')->middleware('permission:JURNAL_HARIAN_VIEW');
+        Route::get('jurnal-harian/export-excel', [JurnalHarianController::class, 'exportExcel'])->name('jurnal-harian.exportExcel')->middleware('permission:JURNAL_HARIAN_VIEW');
+
+        Route::get('rekap-kas-non-kas/export-pdf', [RekapKasNonKasController::class, 'exportPdf'])->name('rekap-kas-non-kas.exportPdf')->middleware('permission:REKAP_KAS_VIEW');
+        Route::get('rekap-kas-non-kas/export-excel', [RekapKasNonKasController::class, 'exportExcel'])->name('rekap-kas-non-kas.exportExcel')->middleware('permission:REKAP_KAS_VIEW');
+
+        Route::get('buku-kas-harian/export-pdf', [BukuKasHarianController::class, 'exportPdf'])->name('buku-kas-harian.exportPdf')->middleware('permission:BUKU_KAS_VIEW');
+        Route::get('buku-kas-harian/export-excel', [BukuKasHarianController::class, 'exportExcel'])->name('buku-kas-harian.exportExcel')->middleware('permission:BUKU_KAS_VIEW');
+
+        Route::get('laba-rugi/periode/export-pdf', [LabaRugiController::class, 'exportPdf'])->name('laba-rugi.periode.exportPdf')->middleware('permission:LABA_RUGI_PERIODE_VIEW');
+        Route::get('laba-rugi/periode/export-excel', [LabaRugiController::class, 'exportExcel'])->name('laba-rugi.periode.exportExcel')->middleware('permission:LABA_RUGI_PERIODE_VIEW');
+
+        Route::get('neraca-saldo/export-pdf', [NeracaSaldoController::class, 'exportPdf'])->name('neraca-saldo.exportPdf')->middleware('permission:NERACA_SALDO_VIEW');
+        Route::get('neraca-saldo/export-excel', [NeracaSaldoController::class, 'exportExcel'])->name('neraca-saldo.exportExcel')->middleware('permission:NERACA_SALDO_VIEW');
+
+        Route::get('cek-neraca-saldo/export-pdf', [CekNeracaSaldoController::class, 'exportPdf'])->name('cek-neraca-saldo.exportPdf')->middleware('permission:CEK_NERACA_SALDO_VIEW');
+        Route::get('cek-neraca-saldo/export-excel', [CekNeracaSaldoController::class, 'exportExcel'])->name('cek-neraca-saldo.exportExcel')->middleware('permission:CEK_NERACA_SALDO_VIEW');
+
+        Route::get('laporan-akunting/shu/export-pdf', [ShuController::class, 'exportPdf'])->name('laporan-akunting.shu.exportPdf')->middleware('permission:LAP_SHU_VIEW');
+        Route::get('laporan-akunting/shu/export-excel', [ShuController::class, 'exportExcel'])->name('laporan-akunting.shu.exportExcel')->middleware('permission:LAP_SHU_VIEW');
+
+        Route::get('laporan-akunting/arus-kas/export-pdf', [ArusKasController::class, 'exportPdf'])->name('laporan-akunting.arus-kas.exportPdf')->middleware('permission:LAP_ARUS_KAS_VIEW');
+        Route::get('laporan-akunting/arus-kas/export-excel', [ArusKasController::class, 'exportExcel'])->name('laporan-akunting.arus-kas.exportExcel')->middleware('permission:LAP_ARUS_KAS_VIEW');
 
         Route::middleware(['administrator'])->group(function () {
             Route::match(['get','post'],'aktivitas-log', [AktivitasLogController::class, 'index'])

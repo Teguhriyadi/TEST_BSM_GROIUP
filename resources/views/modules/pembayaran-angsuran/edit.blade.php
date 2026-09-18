@@ -6,7 +6,7 @@
         <h6 class="m-0 font-weight-bold text-primary">Form Edit Pembayaran Angsuran</h6>
     </div>
     <div class="card-body">
-        <form method="POST" action="{{ route('pembayaran-angsuran.update', $pembayaranAngsuran->id) }}">
+        <form method="POST" action="{{ route('pembayaran-angsuran.update', $pembayaranAngsuran->id) }}" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             <div class="row">
@@ -50,11 +50,22 @@
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="bukti_pembayaran" class="form-label">Bukti Pembayaran</label>
-                    <input type="text" name="bukti_pembayaran" id="bukti_pembayaran" class="form-control @error('bukti_pembayaran') is-invalid @enderror" value="{{ old('bukti_pembayaran', $pembayaranAngsuran->bukti_pembayaran) }}" placeholder="Nama file / link bukti transfer (opsional)">
+                    <label for="bukti_pembayaran" class="form-label">Bukti Pembayaran Baru</label>
+                    <input type="file" name="bukti_pembayaran" id="bukti_pembayaran" accept="image/jpeg,image/png,application/pdf" class="form-control @error('bukti_pembayaran') is-invalid @enderror">
+                    <div class="form-text small text-muted mt-1">Format: JPG, JPEG, PNG, PDF. Maksimal 10 MB. Kosongkan jika tidak ingin mengganti.</div>
                     @error('bukti_pembayaran')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
+                    @if($pembayaranAngsuran->url_bukti_pembayaran)
+                        <div class="mt-2 small">
+                            <span class="fw-medium">Bukti saat ini:</span>
+                            <a href="{{ e($pembayaranAngsuran->url_bukti_pembayaran) }}" target="_blank" rel="noopener">Lihat File</a>
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" name="bukti_pembayaran_lama_hapus" id="bukti_pembayaran_lama_hapus" value="1">
+                                <label class="form-check-label small" for="bukti_pembayaran_lama_hapus">Hapus bukti pembayaran lama (tanpa mengunggah yang baru)</label>
+                            </div>
+                        </div>
+                    @endif
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="dibayar_oleh" class="form-label">Dibayar Oleh</label>

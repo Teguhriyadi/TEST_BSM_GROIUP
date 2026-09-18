@@ -273,9 +273,24 @@
             <div class="card-body">
                 @if($dokumenWajibList->count() === 0)
                     <div class="alert alert-warning mb-0">
-                        Jenis pinjaman ini belum memiliki daftar persyaratan dokumen wajib. Silakan hubungi administrator untuk mengatur persyaratan dokumen pada master jenis pinjaman.
+                        Jenis pinjaman ini belum memiliki daftar persyaratan dokumen. Silakan hubungi administrator untuk mengatur persyaratan di menu Master Dokumen → Setting Persyaratan Pinjaman.
                     </div>
                 @else
+                    @php
+                        $jmlWajib = $dokumenWajibList->filter(fn($d) => !empty($d->is_wajib))->count();
+                        $jmlOpsional = $dokumenWajibList->count() - $jmlWajib;
+                    @endphp
+                    <div class="mb-3 d-flex flex-wrap gap-3 align-items-center">
+                        <div class="small text-muted">
+                            Total: <strong>{{ $dokumenWajibList->count() }}</strong> dokumen
+                            @if($jmlWajib > 0)
+                                · <span class="badge bg-orange text-white py-1 px-2">Wajib {{ $jmlWajib }}</span>
+                            @endif
+                            @if($jmlOpsional > 0)
+                                · <span class="badge bg-secondary text-white py-1 px-2">Opsional {{ $jmlOpsional }}</span>
+                            @endif
+                        </div>
+                    </div>
                     <div class="row g-3">
                         @foreach($dokumenWajibList as $dok)
                             @php
@@ -286,13 +301,21 @@
                                 $urlFile = $dok->url_file;
                                 $dapatUnggah = $bisaUploadDokumen && $dok->dapat_diunggah_ulang;
                                 $format = $master?->format_diperbolehkan ?? 'jpg,jpeg,png,pdf';
+                                $wajib = !empty($dok->is_wajib);
                             @endphp
                             <div class="col-xl-6">
                                 <div class="card border border-gray-200 h-100">
                                     <div class="card-header py-2 d-flex align-items-center justify-content-between bg-white border-bottom">
                                         <div>
-                                            <div class="fw-semibold text-gray-800">{{ $master?->nama_dokumen ?? 'Dokumen Persyaratan' }}</div>
-                                            <div class="small text-muted">{{ $master?->deskripsi ?? 'Dokumen persyaratan wajib' }}</div>
+                                            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                                <div class="fw-semibold text-gray-800">{{ $master?->nama_dokumen ?? 'Dokumen Persyaratan' }}</div>
+                                                @if($wajib)
+                                                    <span class="badge bg-orange text-white py-0.5 px-2">Wajib</span>
+                                                @else
+                                                    <span class="badge bg-secondary text-white py-0.5 px-2">Opsional</span>
+                                                @endif
+                                            </div>
+                                            <div class="small text-muted">{{ $master?->deskripsi ?? ($wajib ? 'Dokumen persyaratan wajib' : 'Dokumen pendukung opsional') }}</div>
                                         </div>
                                         <span class="badge bg-{{ $warnaStatus }} text-white py-1 px-3">{{ $labelStatus }}</span>
                                     </div>
@@ -383,7 +406,7 @@
                                                 <div class="small fw-semibold mb-2 text-primary">Verifikasi Dokumen</div>
                                                 <div class="row g-2 mb-2">
                                                     <div class="col-md-6">
-                                                        <select name="status" class="form-select form-select-sm @error('status') is-invalid @enderror" data-toggle-one="{{ $master?->id }}">
+                                                        <select name="status" class="form-select form-select-sm select2-single @error('status') is-invalid @enderror" data-toggle-one="{{ $master?->id }}" data-placeholder="-- Pilih Hasil Verifikasi --">
                                                             <option value="">Pilih Hasil Verifikasi</option>
                                                             <option value="disetujui" {{ old('status') === 'disetujui' ? 'selected' : '' }}>Disetujui</option>
                                                             <option value="perlu_diperbaiki" {{ old('status') === 'perlu_diperbaiki' ? 'selected' : '' }}>Perlu Diperbaiki</option>

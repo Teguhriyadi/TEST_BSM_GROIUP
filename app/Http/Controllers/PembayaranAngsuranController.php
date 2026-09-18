@@ -11,6 +11,7 @@ use App\Http\Requests\PembayaranAngsuran\PembayaranAngsuranUpdateRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PembayaranAngsuranController extends Controller
 {
@@ -76,6 +77,29 @@ class PembayaranAngsuranController extends Controller
         try {
             $valid = $request->validated();
             $valid['dibayar_oleh'] = $valid['dibayar_oleh'] ?? (auth()->check() ? auth()->id() : null);
+
+            $file = $request->file('bukti_pembayaran');
+            if ($file !== null) {
+                $directory = 'bukti-pembayaran/' . ($valid['angsuran_id'] ?? date('Ym'));
+                $ext = strtolower((string) $file->getClientOriginalExtension());
+                $mime = strtolower((string) $file->getMimeType());
+                $isPdf = ($ext === 'pdf' || $mime === 'application/pdf');
+                if ($isPdf) {
+                    $storedPath = neo_store_file($file, $directory, 'private');
+                } else {
+                    if (! function_exists('compressImage')) {
+                        require_once app_path('Helpers/image_helper.php');
+                    }
+                    $storedPath = compressImage($file, $directory, 85, 2000, 'private');
+                }
+                if ($storedPath === null || trim((string) $storedPath) === '') {
+                    throw new \RuntimeException('Gagal menyimpan bukti pembayaran.');
+                }
+                $valid['bukti_pembayaran'] = $storedPath;
+            } elseif (isset($valid['bukti_pembayaran']) && is_string($valid['bukti_pembayaran'])) {
+                unset($valid['bukti_pembayaran']);
+            }
+
             PembayaranAngsuran::create($valid);
             DB::commit();
             return redirect()->route('pembayaran-angsuran.index')->with('success', 'Data berhasil disimpan');
@@ -102,7 +126,44 @@ class PembayaranAngsuranController extends Controller
             $pembayaranAngsuran = PembayaranAngsuran::findOrFail($id);
             $valid = $request->validated();
             $valid['dibayar_oleh'] = $valid['dibayar_oleh'] ?? (auth()->check() ? auth()->id() : null);
+
+            $oldPath = $pembayaranAngsuran->bukti_pembayaran;
+            $file = $request->file('bukti_pembayaran');
+            $forceDelete = ! empty($valid['bukti_pembayaran_lama_hapus']) && $valid['bukti_pembayaran_lama_hapus'] == true;
+            if ($file !== null) {
+                $directory = 'bukti-pembayaran/' . ($valid['angsuran_id'] ?? date('Ym'));
+                $ext = strtolower((string) $file->getClientOriginalExtension());
+                $mime = strtolower((string) $file->getMimeType());
+                $isPdf = ($ext === 'pdf' || $mime === 'application/pdf');
+                if ($isPdf) {
+                    $storedPath = neo_store_file($file, $directory, 'private');
+                } else {
+                    if (! function_exists('compressImage')) {
+                        require_once app_path('Helpers/image_helper.php');
+                    }
+                    $storedPath = compressImage($file, $directory, 85, 2000, 'private');
+                }
+                if ($storedPath === null || trim((string) $storedPath) === '') {
+                    throw new \RuntimeException('Gagal menyimpan bukti pembayaran.');
+                }
+                $valid['bukti_pembayaran'] = $storedPath;
+            } else {
+                if ($forceDelete) {
+                    $valid['bukti_pembayaran'] = null;
+                } elseif (isset($valid['bukti_pembayaran']) && is_string($valid['bukti_pembayaran'])) {
+                    unset($valid['bukti_pembayaran']);
+                }
+            }
+
             $pembayaranAngsuran->update($valid);
+
+            if ($oldPath !== null && trim((string) $oldPath) !== '') {
+                $pathBerubah = ! isset($valid['bukti_pembayaran']) || (string) ($valid['bukti_pembayaran'] ?? '') !== (string) $oldPath;
+                if ($pathBerubah) {
+                    neo_delete_file($oldPath);
+                }
+            }
+
             DB::commit();
             return redirect()->route('pembayaran-angsuran.index')->with('success', 'Data berhasil diubah');
         } catch (\Exception $e) {
@@ -116,7 +177,9 @@ class PembayaranAngsuranController extends Controller
         DB::beginTransaction();
         try {
             $pembayaranAngsuran = PembayaranAngsuran::findOrFail($id);
+            $path = $pembayaranAngsuran->bukti_pembayaran;
             $pembayaranAngsuran->delete();
+            neo_delete_file($path);
             DB::commit();
             return redirect()->route('pembayaran-angsuran.index')->with('success', 'Data berhasil dihapus');
         } catch (\Exception $e) {

@@ -61,7 +61,7 @@
                         <div class="small text-muted">Bukti Pembayaran</div>
                         <div>
                             @if(! empty($pembayaran->bukti_pembayaran))
-                                <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($pembayaran->bukti_pembayaran) }}" target="_blank" class="btn btn-sm btn-primary">
+                                <a href="{{ $pembayaran->url_bukti_pembayaran }}" target="_blank" class="btn btn-sm btn-primary">
                                     <i class="bi bi-file-image me-1"></i> Lihat Bukti
                                 </a>
                             @else

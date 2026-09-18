@@ -13,27 +13,27 @@
         $colCustom = 'col-md-5';
         $colCabang = 'col-md-5';
         $colTgl = 'col-md-3';
-        $colBtn = 'col-md-2';
+        $colBtn = 'col-md-auto';
     } elseif ($totalFieldFilter === 2) {
         $colCustom = 'col-md-3';
         $colCabang = 'col-md-4';
         $colTgl = 'col-md-3';
-        $colBtn = 'col-md-2';
+        $colBtn = 'col-md-auto';
     } elseif ($totalFieldFilter === 3) {
         $colCustom = 'col-md-3';
         $colCabang = 'col-md-3';
         $colTgl = 'col-md-2';
-        $colBtn = 'col-md-2';
+        $colBtn = 'col-md-auto';
     } elseif ($totalFieldFilter === 4) {
         $colCustom = 'col-md-2';
         $colCabang = 'col-md-2';
         $colTgl = 'col-md-2';
-        $colBtn = 'col-md-2';
+        $colBtn = 'col-md-auto';
     } else {
         $colCustom = 'col-md-2';
         $colCabang = 'col-md-2';
         $colTgl = 'col-md-2';
-        $colBtn = 'col-md-2';
+        $colBtn = 'col-md-auto';
     }
 @endphp
 <div class="card shadow-sm mb-4 border-0">
@@ -108,14 +108,40 @@
             </div>
             @endif
 
-            <div class="{{ $colBtn }} col-12 d-flex gap-2">
-                <button type="submit" name="apply_filter" value="1" class="btn btn-sm text-white flex-grow-1 fw-semibold border-0" style="background-color: #f97316;">
+            <div class="{{ $colBtn }} col-12 d-flex gap-2 flex-nowrap align-items-stretch justify-content-end" style="flex-shrink: 0;">
+                <button type="submit" name="apply_filter" value="1" class="btn btn-sm text-white fw-semibold border-0 px-4" style="background-color: #f97316; min-width: 110px; height: calc(1.5em + 0.75rem + 2px);">
                     <i class="bi bi-funnel me-1"></i> Terapkan
                 </button>
-                <button type="submit" name="_reset_filter" value="1" class="btn btn-sm btn-outline-secondary flex-grow-1 fw-semibold">
+                <button type="submit" name="_reset_filter" value="1" class="btn btn-sm btn-outline-secondary fw-semibold px-4" style="min-width: 110px; height: calc(1.5em + 0.75rem + 2px);">
                     Reset
                 </button>
             </div>
+
+            @if(!empty($exportPdfUrl) || !empty($exportExcelUrl))
+            <div class="col-12 mt-3 pt-3 border-top d-flex gap-2 flex-wrap align-items-center justify-content-end">
+                <span class="small text-muted me-auto fw-medium"><i class="bi bi-download me-1"></i>Ekspor Data:</span>
+                @if(!empty($exportPdfUrl))
+                    @php
+                        $qs = $_SERVER['QUERY_STRING'] ?? '';
+                        $sep = !str_contains($exportPdfUrl, '?') ? '?' : '&';
+                        $hrefPdf = $exportPdfUrl . ($qs ? $sep . $qs : '');
+                    @endphp
+                    <a href="{{ $hrefPdf }}" target="_blank" class="btn btn-sm btn-outline-danger fw-semibold px-4" style="height: calc(1.5em + 0.75rem + 2px); min-width: 120px;">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                    </a>
+                @endif
+                @if(!empty($exportExcelUrl))
+                    @php
+                        $qs2 = $_SERVER['QUERY_STRING'] ?? '';
+                        $sep2 = !str_contains($exportExcelUrl, '?') ? '?' : '&';
+                        $hrefXls = $exportExcelUrl . ($qs2 ? $sep2 . $qs2 : '');
+                    @endphp
+                    <a href="{{ $hrefXls }}" class="btn btn-sm btn-outline-success fw-semibold px-4" style="height: calc(1.5em + 0.75rem + 2px); min-width: 120px;">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                    </a>
+                @endif
+            </div>
+            @endif
         </form>
     </div>
 </div>

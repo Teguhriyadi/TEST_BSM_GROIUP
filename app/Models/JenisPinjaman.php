@@ -49,6 +49,7 @@ class JenisPinjaman extends Model
             'master_dokumen_id',
         )->withPivot(['is_wajib', 'urutan'])
          ->withTimestamps()
+         ->where('master_dokumen.is_active', true)
          ->orderByPivot('urutan', 'asc')
          ->orderBy('master_dokumen.nama_dokumen', 'asc');
     }
@@ -65,5 +66,24 @@ class JenisPinjaman extends Model
             ->map(fn ($v) => (string) $v)
             ->values()
             ->all();
+    }
+
+    public function getDaftarSemuaMasterDokumenIdAttribute(): array
+    {
+        return $this->dokumenPersyaratan()
+            ->pluck('master_dokumen.id')
+            ->map(fn ($v) => (string) $v)
+            ->values()
+            ->all();
+    }
+
+    public function getDaftarMasterDokumenWajibAttribute()
+    {
+        return $this->dokumenPersyaratanWajib;
+    }
+
+    public function getDaftarSemuaDokumenAttribute()
+    {
+        return $this->dokumenPersyaratan;
     }
 }

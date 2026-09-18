@@ -2,6 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\PembayaranAngsuran;
+use App\Models\Pinjaman;
+use App\Models\Simpanan;
+use App\Observers\PembayaranAngsuranObserver;
+use App\Observers\PinjamanObserver;
+use App\Observers\SimpananObserver;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
@@ -25,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
 
         Carbon::setLocale('id');
         Carbon::setToStringFormat('D MMMM Y HH:mm:ss');
+
+        Simpanan::observe(SimpananObserver::class);
+        PembayaranAngsuran::observe(PembayaranAngsuranObserver::class);
+        Pinjaman::observe(PinjamanObserver::class);
 
         Blade::directive('tanggal', function ($expression) {
             return "<?php
@@ -71,10 +81,16 @@ class AppServiceProvider extends ServiceProvider
             return (bool) ($user && $user->hasPermission($kodePermission));
         });
 
-        Blade::if('hasanypermission', function (array $kodePermissions) {
+        Blade::if('hasanypermission', function ($kodePermissions) {
             $user = Auth::user();
             if (! $user) {
                 return false;
+            }
+            if (is_string($kodePermissions)) {
+                $separator = str_contains($kodePermissions, '|') ? '|' : (str_contains($kodePermissions, ',') ? ',' : '|');
+                $kodePermissions = array_values(array_filter(array_map('trim', explode($separator, $kodePermissions))));
+            } elseif (! is_array($kodePermissions)) {
+                $kodePermissions = [(string) $kodePermissions];
             }
             foreach ($kodePermissions as $kode) {
                 if ($user->hasPermission((string) $kode)) {

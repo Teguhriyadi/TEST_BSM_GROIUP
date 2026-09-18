@@ -20,7 +20,8 @@ class PembayaranAngsuranCreateRequest extends FormRequest
             'tanggal_bayar' => 'required|date',
             'jumlah_bayar' => 'required|numeric|min:0',
             'metode_pembayaran' => 'required|in:tunai,transfer,lainnya',
-            'bukti_pembayaran' => 'nullable|string|max:255',
+            'bukti_pembayaran' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'bukti_pembayaran_lama_hapus' => 'nullable|boolean',
             'dibayar_oleh' => 'nullable|uuid|exists:users,id',
             'keterangan' => 'nullable|string',
         ];
@@ -39,7 +40,9 @@ class PembayaranAngsuranCreateRequest extends FormRequest
             'jumlah_bayar.min' => 'Jumlah Bayar tidak boleh kurang dari 0.',
             'metode_pembayaran.required' => 'Metode Pembayaran wajib dipilih.',
             'metode_pembayaran.in' => 'Metode Pembayaran harus Tunai, Transfer, atau Lainnya.',
-            'bukti_pembayaran.max' => 'Nama / link Bukti Pembayaran maksimal 255 karakter.',
+            'bukti_pembayaran.mimes' => 'Bukti Pembayaran hanya bisa file JPG, JPEG, PNG, atau PDF.',
+            'bukti_pembayaran.max' => 'Bukti Pembayaran maksimal ukuran 10 MB.',
+            'bukti_pembayaran_lama_hapus.boolean' => 'Format hapus bukti lama tidak valid.',
             'dibayar_oleh.uuid' => 'Format data User (Dibayar Oleh) tidak valid.',
             'dibayar_oleh.exists' => 'User (Dibayar Oleh) yang dipilih tidak ditemukan.',
         ];

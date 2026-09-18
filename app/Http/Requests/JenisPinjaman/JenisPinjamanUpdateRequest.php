@@ -22,8 +22,6 @@ class JenisPinjamanUpdateRequest extends FormRequest
             'bunga_tahunan' => 'required|numeric|min:0|max:100',
             'tenor_minimal' => 'nullable|numeric|min:0',
             'tenor_maksimal' => 'nullable|integer|min:0',
-            'master_dokumen_ids' => 'nullable|array',
-            'master_dokumen_ids.*' => 'string|exists:master_dokumen,id',
         ];
     }
 
@@ -42,8 +40,6 @@ class JenisPinjamanUpdateRequest extends FormRequest
             'tenor_minimal.min' => 'Tenor Minimal tidak boleh kurang dari 0.',
             'tenor_maksimal.integer' => 'Tenor Maksimal harus berupa bilangan bulat (bulan).',
             'tenor_maksimal.min' => 'Tenor Maksimal tidak boleh kurang dari 0.',
-            'master_dokumen_ids.array' => 'Daftar dokumen persyaratan wajib formatnya tidak valid.',
-            'master_dokumen_ids.*.exists' => 'Terdapat dokumen yang dipilih tidak valid atau tidak ditemukan.',
         ];
     }
 }

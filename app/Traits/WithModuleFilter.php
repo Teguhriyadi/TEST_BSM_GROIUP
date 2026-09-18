@@ -9,17 +9,42 @@ trait WithModuleFilter
 {
     protected function resolveFilter(Request $request, string $routeKey, array $config = []): array
     {
-        return ModuleFilterService::resolve($request, $routeKey, $config);
+        try {
+            return ModuleFilterService::resolve($request, $routeKey, $config);
+        } catch (\Throwable $e) {
+            return [
+                'cabang_list' => \App\Models\Cabang::where('is_active', '1')->orderBy('nama_cabang', 'asc')->get(),
+                'filter' => [
+                    'cabang_id' => $request->input('cabang_id'),
+                    'tanggal_awal' => $request->input('tanggal_awal'),
+                    'tanggal_akhir' => $request->input('tanggal_akhir'),
+                ],
+                'is_anggota' => false,
+                'custom_filter_options' => [],
+                'lock_cabang_to_user' => false,
+                'locked_cabang_id' => null,
+                'locked_cabang_nama' => null,
+                'locked_cabang_kode' => null,
+            ];
+        }
     }
 
     protected function applyFilter($query, array $resolved, array $override = [])
     {
-        return ModuleFilterService::apply($query, $resolved, $override);
+        try {
+            return ModuleFilterService::apply($query, $resolved, $override);
+        } catch (\Throwable $e) {
+            return $query;
+        }
     }
 
     protected function filterSummary(array $resolved): string
     {
-        return ModuleFilterService::summaryText($resolved);
+        try {
+            return ModuleFilterService::summaryText($resolved);
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     protected function userForcedCabangId(): ?string
@@ -50,5 +75,30 @@ trait WithModuleFilter
             'lockedCabangKode' => $resolved['locked_cabang_kode'] ?? null,
             'moduleFilterSummary' => $this->filterSummary($resolved),
         ];
+    }
+
+    protected function applyModuleFilter($query, Request $request)
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return $query;
+        }
+        $isAdmin = $user?->role?->kode_role === 'ROL-ADM';
+        if (! $isAdmin && $user?->cabang_id) {
+            $cabangCol = method_exists($query->getModel(), 'cabang') ? 'cabang_id' : ($query->getModel()->getTable() . '.cabang_id');
+            $query->where($cabangCol, $user->cabang_id);
+        } else {
+            $cabangReq = $request->input('cabang_id');
+            if ($cabangReq) {
+                $cabangCol = method_exists($query->getModel(), 'cabang') ? 'cabang_id' : ($query->getModel()->getTable() . '.cabang_id');
+                $query->where($cabangCol, $cabangReq);
+            }
+        }
+        return $query;
+    }
+
+    protected function getCabangFilterList()
+    {
+        return \App\Models\Cabang::where('is_active', '1')->orderBy('kode_cabang', 'asc')->orderBy('nama_cabang', 'asc')->get();
     }
 }

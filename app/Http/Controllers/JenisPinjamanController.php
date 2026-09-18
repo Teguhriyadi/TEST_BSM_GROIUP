@@ -39,11 +39,7 @@ class JenisPinjamanController extends Controller
 
     public function create()
     {
-        $masterDokumen = \App\Models\MasterDokumen::where('is_active', true)
-            ->orderBy('nama_dokumen', 'asc')
-            ->get(['id', 'kode_dokumen', 'nama_dokumen', 'deskripsi']);
-        $selectedIds = old('master_dokumen_ids', []);
-        return view("modules.jenis-pinjaman.create", compact('masterDokumen', 'selectedIds'));
+        return view("modules.jenis-pinjaman.create");
     }
 
     public function store(JenisPinjamanCreateRequest $request)
@@ -51,25 +47,10 @@ class JenisPinjamanController extends Controller
         DB::beginTransaction();
         try {
             $valid = $request->validated();
-            $masterDokumenIds = array_values(array_unique(array_map('strval', $valid['master_dokumen_ids'] ?? [])));
-            unset($valid['master_dokumen_ids']);
             $jenisPinjaman = JenisPinjaman::create($valid);
 
-            if ($masterDokumenIds !== []) {
-                $syncData = [];
-                $urutan = 1;
-                foreach ($masterDokumenIds as $mid) {
-                    $syncData[$mid] = [
-                        'id' => \Illuminate\Support\Str::uuid()->toString(),
-                        'is_wajib' => true,
-                        'urutan' => $urutan++,
-                    ];
-                }
-                $jenisPinjaman->dokumenPersyaratan()->sync($syncData);
-            }
-
             DB::commit();
-            return redirect()->route('jenis-pinjaman.index')->with('success', 'Data berhasil disimpan');
+            return redirect()->route('jenis-pinjaman.index')->with('success', 'Data berhasil disimpan. Untuk mengatur persyaratan dokumen jenis ini, gunakan menu Master Dokumen → Setting Persyaratan Pinjaman.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withInput()->with('error', 'Data gagal disimpan: ' . $e->getMessage());
@@ -78,15 +59,8 @@ class JenisPinjamanController extends Controller
 
     public function edit($id)
     {
-        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->findOrFail($id);
-        $masterDokumen = \App\Models\MasterDokumen::where('is_active', true)
-            ->orderBy('nama_dokumen', 'asc')
-            ->get(['id', 'kode_dokumen', 'nama_dokumen', 'deskripsi']);
-        $selectedIds = old(
-            'master_dokumen_ids',
-            $jenisPinjaman->dokumenPersyaratanWajib->pluck('id')->map(fn ($v) => (string) $v)->values()->all(),
-        );
-        return view("modules.jenis-pinjaman.edit", compact('jenisPinjaman', 'masterDokumen', 'selectedIds'));
+        $jenisPinjaman = JenisPinjaman::findOrFail($id);
+        return view("modules.jenis-pinjaman.edit", compact('jenisPinjaman'));
     }
 
     public function update(JenisPinjamanUpdateRequest $request, $id)
@@ -95,26 +69,10 @@ class JenisPinjamanController extends Controller
         try {
             $jenisPinjaman = JenisPinjaman::findOrFail($id);
             $valid = $request->validated();
-            $masterDokumenIds = array_values(array_unique(array_map('strval', $valid['master_dokumen_ids'] ?? [])));
-            unset($valid['master_dokumen_ids']);
             $jenisPinjaman->update($valid);
 
-            $syncData = [];
-            $urutan = 1;
-            foreach ($masterDokumenIds as $mid) {
-                $existing = $jenisPinjaman->dokumenPersyaratan()
-                    ->where('master_dokumen_id', $mid)
-                    ->first();
-                $syncData[$mid] = [
-                    'id' => $existing?->pivot?->id ?? \Illuminate\Support\Str::uuid()->toString(),
-                    'is_wajib' => true,
-                    'urutan' => $urutan++,
-                ];
-            }
-            $jenisPinjaman->dokumenPersyaratan()->sync($syncData);
-
             DB::commit();
-            return redirect()->route('jenis-pinjaman.index')->with('success', 'Data berhasil diubah');
+            return redirect()->route('jenis-pinjaman.index')->with('success', 'Data berhasil diubah. Untuk mengatur persyaratan dokumen jenis ini, gunakan menu Master Dokumen → Setting Persyaratan Pinjaman.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withInput()->with('error', 'Data gagal diubah: ' . $e->getMessage());

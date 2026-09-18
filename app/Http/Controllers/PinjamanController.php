@@ -106,7 +106,9 @@ class PinjamanController extends Controller
             $anggota = Anggota::where('status', 'aktif')->get(['id', 'nama', 'no_anggota']);
             $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
         }
-        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->get([
+        $jenisPinjaman = JenisPinjaman::with(['dokumenPersyaratan' => function ($q) {
+            $q->select(['master_dokumen.id', 'kode_dokumen', 'nama_dokumen', 'deskripsi', 'format_diperbolehkan']);
+        }])->get([
             'id', 'nama_jenis', 'bunga_tahunan', 'tenor_minimal', 'tenor_maksimal', 'maksimal_plafon',
         ]);
         return view("modules.pinjaman.create", compact('anggota', 'cabang', 'jenisPinjaman'));
@@ -114,10 +116,10 @@ class PinjamanController extends Controller
 
     private function seedDokumenWajibForPinjaman(Pinjaman $pinjaman): void
     {
-        $daftarWajib = $pinjaman->jenisPinjaman?->daftar_master_dokumen_id_wajib ?? [];
+        $daftarSemua = $pinjaman->jenisPinjaman?->daftar_semua_master_dokumen_id ?? [];
         $now = now();
         $rows = [];
-        foreach (array_values(array_unique(array_map('strval', $daftarWajib))) as $masterDokumenId) {
+        foreach (array_values(array_unique(array_map('strval', $daftarSemua))) as $masterDokumenId) {
             $rows[] = [
                 'id' => (string) Str::uuid(),
                 'pinjaman_id' => $pinjaman->id,
@@ -212,7 +214,9 @@ class PinjamanController extends Controller
         $pinjaman = Pinjaman::findOrFail($id);
         $anggota = Anggota::where('status', 'aktif')->get(['id', 'nama', 'no_anggota']);
         $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
-        $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib:id')->get([
+        $jenisPinjaman = JenisPinjaman::with(['dokumenPersyaratan' => function ($q) {
+            $q->select(['master_dokumen.id', 'kode_dokumen', 'nama_dokumen', 'deskripsi', 'format_diperbolehkan']);
+        }])->get([
             'id', 'nama_jenis', 'bunga_tahunan', 'tenor_minimal', 'tenor_maksimal', 'maksimal_plafon',
         ]);
         return view("modules.pinjaman.edit", compact('pinjaman', 'anggota', 'cabang', 'jenisPinjaman'));
@@ -277,7 +281,7 @@ class PinjamanController extends Controller
         $pinjaman = Pinjaman::with([
             'anggota:id,nama,no_anggota',
             'cabang:id,nama_cabang',
-            'jenisPinjaman.dokumenPersyaratanWajib',
+            'jenisPinjaman.dokumenPersyaratan',
             'dokumen.masterDokumen',
             'dokumen.uploader:id,nama',
             'dokumen.verifikator:id,nama',
@@ -291,15 +295,15 @@ class PinjamanController extends Controller
             }
         }
 
-        $daftarWajibId = $pinjaman->jenisPinjaman?->daftar_master_dokumen_id_wajib ?? [];
-        $masterDokumenWajib = MasterDokumen::whereIn('id', $daftarWajibId)
-            ->where('is_active', true)
-            ->orderBy('nama_dokumen', 'asc')
-            ->get(['id', 'kode_dokumen', 'nama_dokumen', 'deskripsi', 'format_diperbolehkan']);
+        $daftarMasterJenis = $pinjaman->jenisPinjaman?->dokumenPersyaratan ?? collect();
+        $masterDokumenList = $daftarMasterJenis
+            ->filter(fn ($md) => $md->is_active ?? true)
+            ->sortBy(fn ($md) => (int) ($md->pivot?->urutan ?? 9999))
+            ->values();
 
         $existingByMaster = $pinjaman->dokumen->keyBy(fn ($d) => (string) $d->master_dokumen_id);
         $dokumenWajibList = collect();
-        foreach ($masterDokumenWajib as $md) {
+        foreach ($masterDokumenList as $md) {
             $existing = $existingByMaster->get((string) $md->id);
             if (! $existing) {
                 $existing = new PinjamanDokumen([
@@ -307,6 +311,10 @@ class PinjamanController extends Controller
                     'master_dokumen_id' => $md->id,
                     'status' => 'belum_diunggah',
                 ]);
+                $existing->setRelation('masterDokumen', $md);
+            }
+            $existing->is_wajib = (bool) ($md->pivot?->is_wajib ?? false);
+            if (! $existing->getRelation('masterDokumen')) {
                 $existing->setRelation('masterDokumen', $md);
             }
             $dokumenWajibList->push($existing);
@@ -327,10 +335,10 @@ class PinjamanController extends Controller
         }
 
         $masterDokumen = MasterDokumen::findOrFail($masterDokumenId);
-        $daftarWajibId = $pinjaman->jenisPinjaman?->daftar_master_dokumen_id_wajib ?? [];
-        if (! in_array((string) $masterDokumenId, $daftarWajibId, true)) {
+        $daftarSemuaId = $pinjaman->jenisPinjaman?->daftar_semua_master_dokumen_id ?? [];
+        if (! in_array((string) $masterDokumenId, $daftarSemuaId, true)) {
             return redirect()->route('pinjaman.show', $pinjaman->id)
-                ->with('error', 'Dokumen tersebut bukan merupakan persyaratan wajib untuk pinjaman ini.');
+                ->with('error', 'Dokumen tersebut bukan merupakan persyaratan (wajib maupun opsional) untuk pinjaman ini.');
         }
 
         DB::beginTransaction();
@@ -357,13 +365,15 @@ class PinjamanController extends Controller
             $isPdf = $ext === 'pdf' || $mime === 'application/pdf';
 
             if ($isPdf) {
-                $filename = Str::random(40) . '.pdf';
-                $relativePath = (string) $file->storeAs(rtrim($directory, '/'), $filename, 'public');
+                $relativePath = neo_store_file($file, $directory, 'private');
+                if ($relativePath === null || trim((string) $relativePath) === '') {
+                    throw new \RuntimeException('Gagal menyimpan file dokumen. Silakan coba kembali.');
+                }
             } else {
                 if (! function_exists('compressImage')) {
                     require_once app_path('Helpers/image_helper.php');
                 }
-                $relativePath = compressImage($file, $directory, 80, 1600);
+                $relativePath = compressImage($file, $directory, 80, 1600, 'private');
                 if ($relativePath === null || trim($relativePath) === '') {
                     throw new \RuntimeException('Gagal menyimpan file dokumen. Silakan coba kembali.');
                 }
@@ -385,13 +395,9 @@ class PinjamanController extends Controller
                 $oldPath !== null
                 && trim((string) $oldPath) !== ''
                 && $oldPath !== $relativePath
-                && Storage::disk('public')->exists($oldPath)
+                && neo_file_exists($oldPath)
             ) {
-                try {
-                    Storage::disk('public')->delete($oldPath);
-                } catch (\Throwable $e) {
-                    report($e);
-                }
+                neo_delete_file($oldPath);
             }
 
             if ($pinjaman->status !== 'diajukan') {
@@ -649,12 +655,8 @@ class PinjamanController extends Controller
         try {
             $pinjaman = Pinjaman::with('dokumen')->findOrFail($id);
             foreach ($pinjaman->dokumen as $dok) {
-                if (! empty($dok->file_path) && Storage::disk('public')->exists($dok->file_path)) {
-                    try {
-                        Storage::disk('public')->delete($dok->file_path);
-                    } catch (\Throwable $e) {
-                        report($e);
-                    }
+                if (! empty($dok->file_path) && neo_file_exists($dok->file_path)) {
+                    neo_delete_file($dok->file_path);
                 }
             }
             $pinjaman->delete();

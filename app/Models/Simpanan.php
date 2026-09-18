@@ -19,6 +19,7 @@ class Simpanan extends Model
         'anggota_id',
         'cabang_id',
         'jenis_simpanan_id',
+        'jenis',
         'tanggal',
         'nominal',
         'saldo',

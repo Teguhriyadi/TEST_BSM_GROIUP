@@ -135,13 +135,17 @@
         }
 
         if ($.fn.select2) {
-            $('.select2').each(function() {
-                const placeholder = $(this).find('option[value=""]').text() || '-- Pilih --';
-                $(this).select2({
+            const selectors = '.select2, .select2-single, .select2-multiple, .select2-advanced, .select-coa';
+            $(document).find(selectors).each(function() {
+                const el = $(this);
+                const isMultiple = el.prop('multiple') || el.hasClass('select2-multiple');
+                const placeholder = el.data('placeholder') || el.find('option[value=""]').text() || '-- Pilih --';
+                el.select2({
                     theme: 'bootstrap-5',
                     width: '100%',
                     placeholder: placeholder,
-                    allowClear: true,
+                    allowClear: !isMultiple,
+                    closeOnSelect: !isMultiple,
                     language: {
                         noResults: function() { return 'Tidak ada hasil yang ditemukan'; },
                         searching: function() { return 'Mencari...'; },

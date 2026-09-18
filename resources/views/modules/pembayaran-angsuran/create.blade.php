@@ -6,7 +6,7 @@
         <h6 class="m-0 font-weight-bold text-primary">Form Tambah Pembayaran Angsuran</h6>
     </div>
     <div class="card-body">
-        <form method="POST" action="{{ route('pembayaran-angsuran.store') }}">
+        <form method="POST" action="{{ route('pembayaran-angsuran.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -50,7 +50,8 @@
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="bukti_pembayaran" class="form-label">Bukti Pembayaran</label>
-                    <input type="text" name="bukti_pembayaran" id="bukti_pembayaran" class="form-control @error('bukti_pembayaran') is-invalid @enderror" value="{{ old('bukti_pembayaran') }}" placeholder="Nama file / link bukti transfer (opsional)">
+                    <input type="file" name="bukti_pembayaran" id="bukti_pembayaran" accept="image/jpeg,image/png,application/pdf" class="form-control @error('bukti_pembayaran') is-invalid @enderror">
+                    <div class="form-text small text-muted mt-1">Format: JPG, JPEG, PNG, PDF. Maksimal 10 MB.</div>
                     @error('bukti_pembayaran')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
