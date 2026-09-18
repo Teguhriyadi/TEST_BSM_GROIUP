@@ -6,13 +6,15 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Pinjaman extends Model
 {
     use HasUuids;
-    
+
     public $incrementing = false;
     protected $keyType = "string";
 
@@ -44,11 +46,57 @@ class Pinjaman extends Model
         ];
     }
 
+    public static function generateNomorPinjaman(string $cabangId, ?Carbon $tglPengajuan = null, int $maksimalPercobaan = 5): string
+    {
+        $cabang = Cabang::find($cabangId);
+        $kodeCabang = $cabang?->kode_cabang;
+        if ($kodeCabang === null || trim((string) $kodeCabang) === '') {
+            $kodeCabang = 'CAB';
+        }
+        $kodeCabang = strtoupper(trim((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $kodeCabang)));
+        if ($kodeCabang === '') {
+            $kodeCabang = 'CAB';
+        }
+
+        $tgl = $tglPengajuan ?: Carbon::now();
+        $periode = $tgl->format('Ym');
+        $prefix = "{$kodeCabang}-PIN-{$periode}-";
+
+        for ($i = 1; $i <= $maksimalPercobaan; $i++) {
+            $nomorUrutTerakhir = (int) DB::table('pinjaman')
+                ->where('nomor_pinjaman', 'like', "{$prefix}%")
+                ->lockForUpdate()
+                ->max(DB::raw('CAST(SUBSTRING(nomor_pinjaman, ' . (strlen($prefix) + 1) . ') AS UNSIGNED)'));
+            $nomorUrut = (string) ($nomorUrutTerakhir + $i);
+            $nomor = $prefix . str_pad($nomorUrut, 4, '0', STR_PAD_LEFT);
+            $exists = DB::table('pinjaman')->where('nomor_pinjaman', $nomor)->exists();
+            if (! $exists) {
+                return $nomor;
+            }
+        }
+
+        return $prefix . strtoupper(substr(Str::random(6), 0, 4));
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $model) {
             if (empty($model->id)) {
                 $model->id = (string) Str::uuid();
+            }
+            if (empty($model->nomor_pinjaman) || trim((string) $model->nomor_pinjaman) === '') {
+                $tgl = null;
+                if (! empty($model->tgl_pengajuan)) {
+                    try {
+                        $tgl = Carbon::parse($model->tgl_pengajuan);
+                    } catch (\Throwable $e) {
+                        $tgl = null;
+                    }
+                }
+                $model->nomor_pinjaman = self::generateNomorPinjaman(
+                    (string) $model->cabang_id,
+                    $tgl
+                );
             }
         });
     }

@@ -88,4 +88,19 @@ class JenisSimpananController extends Controller
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $jenisSimpanan = JenisSimpanan::withCount('simpanan')->findOrFail($id);
+            $riwayatSimpanan = $jenisSimpanan->simpanan()
+                ->orderBy('tanggal', 'desc')
+                ->limit(30)
+                ->with('anggota:id,nama,no_anggota', 'cabang:id,nama_cabang')
+                ->get();
+            return view("modules.jenis-simpanan.show", compact('jenisSimpanan', 'riwayatSimpanan'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail jenis simpanan: ' . $e->getMessage());
+        }
+    }
 }

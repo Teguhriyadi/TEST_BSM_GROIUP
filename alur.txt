@@ -1,243 +1,471 @@
 ================================================================================
                   SISTEM KOPERASI SIMPAN PINJAM BSM GROUP
-                   ALUR PENGGUNAAN DAN KONFIGURASI ENV
+                   PANDUAN PENGGUNAAN SISTEM SECARA DESKRIPTIF
 ================================================================================
 
-Tabel Konten (sejajar dengan urutan baris di file .env):
+BAB 1. RINGKASAN DAN PERAN PENGGUNA
 --------------------------------------------------------------------------------
-  [SECTION 1] BARIS 1-5   → APP_NAME, APP_ENV, APP_KEY, APP_DEBUG, APP_URL
-  [SECTION 2] BARIS 7-21  → Lokal, Bcrypt, Logging
-  [SECTION 3] BARIS 23-28 → KONEKSI DATABASE MYSQL
-  [SECTION 4] BARIS 30-38 → SESSION, FILESYSTEM (PUBLIC DISK), QUEUE, CACHE
-  [SECTION 5] BARIS 50-51 + BARIS 61-66 → SMTP EMAIL (MAIL + SMTP_)
-  [ALUR 1]  AUTENTIKASI LOGIN, LUPA PASSWORD, RESET PASSWORD (SMTP)
-  [ALUR 2]  PENGAJUAN PINJAMAN + UPLOAD DOKUMEN + KOMPRESI GAMBAR
-  [ALUR 3]  VERIFIKASI DOKUMEN OLEH VALIDATOR (KC / ADMINISTRATOR)
-  [ALUR 4]  APPROVAL PINJAMAN HANYA JIKA SEMUA DOKUMEN WAJIB DISETUJUI
-  [ALUR 5]  PENCairan + ANGSURAN (existing flow)
-================================================================================
+Sistem ini mengelola seluruh operasional Koperasi Simpan Pinjam BSM Group
+mulai dari pendaftaran anggota, pengelolaan simpanan, pengajuan pinjaman
+serta verifikasi dokumen, sampai dengan pembayaran angsuran dan pelaporan.
+
+Empat jenis peran (Role) pengguna pada sistem beserta lingkup tugas:
+  1. ADMINISTRATOR   : Mengelola seluruh Master Data (Cabang, Pengguna,
+                       Role, Permission, Jenis Simpanan, Jenis Pinjaman
+                       beserta persyaratan dokumennya), memantau Aktivitas
+                       Log seluruh user, dan dapat melakukan semua aksi
+                       transaksi di semua Cabang.
+  2. TELLER          : Bertugas melakukan entri data harian di Kantor
+                       Cabang (input anggota, setoran simpanan, pengajuan
+                       pinjaman, upload dokumen, dan entri pembayaran
+                       angsuran). Tidak dapat menghapus data transaksi,
+                       tidak dapat menyetujui pengajuan pinjaman, dan tidak
+                       dapat mengekspor laporan menjadi PDF.
+  3. KEPALA CABANG (KC) : Memiliki semua hak akses Teller ditambah hak
+                       untuk memverifikasi dokumen pinjaman, menyetujui
+                       atau menolak pengajuan pinjaman, menghapus data
+                       transaksi pada Cabangnya sendiri, serta mengekspor
+                       seluruh jenis Laporan menjadi PDF.
+  4. ANGGOTA         : Nasabah koperasi, hanya dapat mengakses portal
+                       anggota (Dashboard pribadi, Riwayat Simpanan
+                       sendiri, Riwayat Pinjaman sendiri, Pengajuan
+                       Pinjaman mandiri, dan Upload dokumen pinjaman
+                       miliknya). Data otomatis terisolasi per anggota.
 
 
-[SECTION 1] BARIS 1-5 → APP_NAME, APP_ENV, APP_KEY, APP_DEBUG, APP_URL
-  Digunakan sebagai identitas brand dan base URL link reset password via email,
-  serta link akses storage/dokumen.
-  Contoh link reset password: {APP_URL}/reset-password/{token}?email=xxx
-
-
-[SECTION 2] BARIS 7-21 → Lokal, Bcrypt, Logging
-  BCRYPT_ROUNDS=12: Cost hash password (Akun user + force change password +
-                    reset via email semuanya menggunakan Hash::make dengan
-                    cost ini).
-
-
-[SECTION 3] BARIS 23-28 → DATABASE MYSQL
-  Nama DB       : db_bsm
-  Username/Port : root / 3306 (default XAMPP / Laragon)
-  Tabel inti    :
-    1. users                       → akun login (Admin, Teller, KC)
-    2. password_resets             → token link lupa password (masa berlaku 60 menit)
-    3. anggota                     → data nasabah
-    4. cabang                      → kantor cabang
-    5. jenis_simpanan / simpanan   → tabungan anggota
-    6. jenis_pinjaman              → produk pinjaman (Mikro, Konsumtif, Pendidikan, Perumahan)
-    7. master_dokumen              → KTP, KK, Slip Gaji, Surat Kerja, Dok Jaminan
-    8. jenis_pinjaman_dokumen_persyaratan  → pivot, atur dokumen WAJIB per jenis pinjaman
-    9. pinjaman                    → pengajuan (status: diajukan s/d dibatalkan, 8 enum)
-   10. pinjaman_dokumen            → detail upload dokumen per pengajuan (5 status)
-   11. angsuran / pembayaran_angsuran → angsuran bulanan (existing)
-   12. roles / permissions / role_has_permissions / model_has_roles → RBAC
-   13. aktivitas_logs              → audit login, logout, CRUD User/Role/Cabang
-
-
-[SECTION 4] BARIS 30-38 → SESSION + FILESYSTEM_DISK=public + QUEUE
-  FILESYSTEM_DISK=public (BARIS 37) → wajib, karena:
-    └─ Upload dokumen pinjaman disimpan via Storage::disk('public')
-    └─ Path fisik  : storage/app/public/dokumen-pinjaman/{pinjaman_id}/{filename}
-    └─ Jalankan    : php artisan storage:link  → symlink public/storage/
-    └─ URL publik  : /storage/dokumen-pinjaman/{pinjaman_id}/{filename}
-    └─ CompressImage() helper memakai disk ini (JPG/PNG di-resize max 1600px,
-       quality 80, agar KTP/KK terbaca jelas).
-
-
-[SECTION 5] BARIS 50-51 MAIL + BARIS 61-66 SMTP
+BAB 2. PANDUAN UMUM (BERLAKU UNTUK SEMUA ROLE)
 --------------------------------------------------------------------------------
-  Prioritas ambil nilai (config/mail.php MAIL > SMTP > default fallback):
-    MAIL_HOST      → jika tidak ada  → pakai SMTP_HOST (smtp.gmail.com)
-    MAIL_PORT      → cast ke integer, fallback SMTP_PORT (587)
-    MAIL_USERNAME  → fallback SMTP_USER (gmail akun)
-    MAIL_PASSWORD  → fallback SMTP_PASSWORD (App Password Gmail, 16 karakter)
-    MAIL_FROM_*    → fallback SMTP_FROM_NAME / SMTP_FROM_EMAIL
-    MAIL_SCHEME=null → biarkan STARTTLS otomatis di-port 587 (Gmail standard).
+2.1. Halaman Login
+     - Buka halaman /login. Isi Email dan Password yang terdaftar, lalu
+       klik tombol Login.
+     - Apabila lupa password, klik link "Lupa Password?" di pojok kanan
+       bawah, masukkan alamat Email terdaftar, sistem akan mengirimkan
+       link reset password via Email. Masa berlaku link adalah 60 menit.
+       Setelah password diganti melalui link email, akun otomatis tidak
+       lagi menampilkan modal "wajib ganti password" saat login.
 
-  CATATAN: JANGAN pernah tulis "${SMTP_X}" di file .env (urutan line bisa
-           berubah menyebabkan literal string tersimpan). Resolusi langsung
-           via config/mail.php dengan nested env('MAIL_X', env('SMTP_X')).
+2.2. Wajib Ganti Password Pertama Kali
+     - Untuk akun baru (dibuat oleh Administrator atau Teller melalui
+       form Anggota), pada saat pertama kali login akan muncul modal
+       Bootstrap yang tidak dapat ditutup. Isikan Password Lama, Password
+       Baru beserta konfirmasinya, lalu klik Simpan. Setelah berhasil
+       halaman akan otomatis refresh dan siap digunakan.
 
+2.3. Dashboard
+     - Setelah login user diarahkan ke Dashboard yang menampilkan ringkasan
+       statistik (Total Anggota, Total Simpanan, Total Pinjaman Aktif,
+       Total Angsuran Bulan Ini) beserta 3 buah grafik Chart.js (tren
+       simpanan, tren pinjaman, dan status pinjaman). Di bagian bawah
+       tersedia tabel "Anggota Terbaru" yang dapat difilter berdasarkan
+       periode tanggal dan cabang.
+     - Setiap halaman dashboard dan index modul menyediakan Filter Card
+       di bagian atas untuk memfilter data berdasarkan Cabang, Tanggal
+       Awal, dan Tanggal Akhir sesuai peran user. Filter bersifat
+       persistensi disimpan dalam Session.
+
+2.4. Error 403 Tidak Diizinkan
+     - Setiap route (URL) dilindungi middleware permission per aksi.
+     - Jika user mengakses URL tanpa permission yang sesuai (misalnya
+       Teller mengakses link buat Cabang baru dengan mengetik langsung
+       /modules/cabang/create), sistem akan menampilkan halaman error
+       403 kustom dengan pesan penjelasan. Tombol aksi di UI juga secara
+       otomatis disembunyikan jika user tidak memiliki permission
+       terkait, guna menghindari user membuka link yang berujung 403.
+
+
+BAB 3. PANDUAN PERAN ADMINISTRATOR
+--------------------------------------------------------------------------------
+3.1. Kelola Master Data Cabang
+     Menu: MASTER DATA → Cabang
+     - Daftar, Tambah, Ubah, Hapus data Cabang beserta status Aktif/Non
+       Aktif. Setiap Cabang memiliki Kode Cabang unik dan dicetak
+       otomatis sebagai awalan nomor anggota pada cabang tersebut.
+
+3.2. Kelola Pengguna, Role, dan Permission
+     Menu: MASTER SISTEM → Hanya bisa diakses Role Administrator
+     - Users   : Daftar akun login sistem (Admin, Teller, KC, Anggota).
+                 Setiap user diikat ke satu Cabang dan satu Role.
+     - Roles   : Membuat Role baru (selain 4 default), atur jumlah
+                 Permission yang melekat pada Role melalui tombol
+                 "Permission" (hanya jika punya ROLE_ASSIGN_PERMISSION).
+                 Jumlah user aktif per Role ditampilkan sebagai badge.
+     - Permission : Daftar 95 permission granular per aksi sistem
+                 (misal CABANG_CREATE, PINJAMAN_APPROVE,
+                 LAPORAN_PINJAMAN_EXPORT). Role Administrator otomatis
+                 mewarisi SEMUA permission tanpa perlu diceklist satu
+                 per satu, sehingga jika ditambahkan permission baru di
+                 masa depan, Admin langsung bisa menggunakannya.
+
+3.3. Kelola Jenis Simpanan & Jenis Pinjaman
+     - Jenis Simpanan : Atur produk tabungan (Simpanan Pokok, Simpanan
+       Wajib, Simpanan Sukarela, Deposito, dsb) disertai setoran min &
+       maksimal per transaksi.
+     - Jenis Pinjaman : Atur produk pinjaman (Mikro, Konsumtif, Pendidikan,
+       Perumahan, dll) beserta plafon maksimal, suku bunga tahunan, dan
+       rentang tenor (bulan). Administrator dan Kepala Cabang yang
+       memiliki permission JENIS_PINJAMAN_PERSYARATAN_DOKUMEN dapat
+       menentukan dokumen wajib mana saja (KTP, KK, Slip Gaji, Surat
+       Kerja, Jaminan) yang harus diunggah nasabah untuk produk tersebut.
+
+3.4. Memantau Aktivitas Log
+     Menu: MASTER SISTEM → Aktivitas Log
+     - Mencatat seluruh event penting: login & logout, perubahan data
+       User/Role/Cabang (create/update/delete), password reset via email,
+       force change password, dan event custom lainnya. Setiap log
+       menyimpan ID user, nama, role, cabang, IP address, dan timestamp.
+
+
+BAB 4. PANDUAN PERAN TELLER (PETUGAS HARIAN)
+--------------------------------------------------------------------------------
+4.1. Pendaftaran Anggota
+     Menu: MASTER DATA → Anggota → Tambah Anggota
+     - Isi biodata nasabah (NIK, Nama Lengkap, Jenis Kelamin, Alamat,
+       Nomor HP, Tempat Tanggal Lahir, Pekerjaan, dan data pendukung
+       lain) lalu pilih Cabang (secara otomatis sama dengan Cabang user
+       Teller terkunci readonly).
+     - Apabila kolom Email diisi, sistem OTOMATIS membuatkan akun login
+       Role Anggota dengan password default, serta menandai
+       force_change_password=1 agar nasabah wajib ganti password pada
+       login pertama.
+     - Setelah disimpan, anggota mendapat No Anggota otomatis berformat
+       [KodeCabang]-[TahunBulan]-[4digit urut].
+
+4.2. Verifikasi Pendaftaran Anggota
+     - Teller memiliki permission ANGGOTA_PENDAFTARAN_VERIFIKASI guna
+       memeriksa kelengkapan biodata anggota yang mendaftar secara
+       mandiri melalui halaman registrasi. Status pendaftaran anggota
+       dapat diubah: diajukan → diverifikasi → disetujui / ditolak.
+       Saat status menjadi disetujui sistem mengirimkan email notifikasi
+       ke anggota bersangkutan.
+
+4.3. Transaksi Simpanan
+     Menu: TRANSAKSI → Simpanan → Tambah
+     - Pilih Anggota, pilih Jenis Simpanan (Pokok, Wajib, Sukarela),
+       isi Tanggal, Nominal, dan Keterangan jika ada. Simpan. Sistem
+       otomatis menghitung Saldo Berjalan di setiap record.
+
+4.4. Pengajuan Pinjaman dan Upload Dokumen
+     - Buat pengajuan baru (Tambah Pinjaman) → pilih Anggota, pilih
+       Jenis Pinjaman, isi Nominal Pinjaman, Tenor (jumlah bulan),
+       Suku Bunga per tahun. Simpan.
+     - Setelah berhasil tersimpan dengan status "diajukan", sistem
+       otomatis membuat daftar baris dokumen wajib sesuai produk jenis
+       pinjaman (misal Pinjaman Konsumtif mewajibkan KTP, KK, Slip Gaji,
+       Surat Kerja). Default status masing-masing "belum_diunggah".
+     - Masuk halaman Detail Pengajuan → upload dokumen satu per satu.
+       Untuk format JPG/PNG sistem otomatis memanggil helper
+       compressImage() yang meresize gambar menjadi maksimal 1600px
+       lebar dengan kualitas JPG 80 (file asli dibuang, hanya hasil
+       kompresi yang disimpan). Format PDF langsung disimpan tanpa
+       kompresi, maksimal 10 MB per file.
+     - Hasil upload mengubah status dokumen menjadi "menunggu_verifikasi"
+       menunggu diperiksa oleh Validator (KC/Admin). Upload ulang ketika
+       dokumen ditolak / perlu diperbaiki akan otomatis menghapus file
+       lama dari storage untuk mencegah penuhnya disk.
+
+4.5. Entri Pembayaran Angsuran Bulanan
+     Menu: TRANSAKSI → Pembayaran Angsuran
+     - Pilih nomor angsuran (jatuh tempo sesuai jadwal), Tanggal Bayar,
+       Jumlah Bayar, Metode (Tunai / Transfer / Lainnya), lampirkan
+       Bukti pembayaran opsional, lalu klik Simpan.
+     - Jika pembayaran melewati tanggal jatuh tempo, sistem otomatis
+       menghitung denda sesuai kebijakan dan menambahkannya ke kolom
+       Denda pada angsuran tersebut.
+
+
+BAB 5. PANDUAN PERAN KEPALA CABANG (KC)
+--------------------------------------------------------------------------------
+5.1. Semua Tugas Teller + Validasi & Otorisasi
+     - KC dapat melakukan seluruh aksi yang dilakukan Teller (entri
+       anggota, simpanan, pinjaman, upload dokumen, pembayaran) pada
+       Cabangnya sendiri.
+
+5.2. Verifikasi Dokumen Pinjaman
+     Permission: PINJAMAN_DOKUMEN_VERIFIKASI
+     - Buka halaman Detail Pengajuan Pinjaman. Setiap kartu dokumen
+       (KTP, KK, Slip Gaji, dll) menampilkan preview gambar / tombol
+       download PDF. Untuk setiap dokumen berstatus "menunggu_verifikasi"
+       (atau sebelumnya ditolak/perlu diperbaiki), KC memilih salah
+       satu:
+         • DISSETUJUI : dokumen dinyatakan lolos.
+         • DITOLAK    : dokumen dinyatakan tidak memenuhi syarat.
+                         WAJIB mengisi catatan penjelasan alasan penolakan.
+         • PERLU DIPERBAIKI : anggota perlu mengunggah ulang dokumen
+                         yang sama dengan versi lebih jelas. WAJIB isi
+                         catatan apa yang harus diperbaiki.
+     - Hasil verifikasi menyimpan user verifikator dan waktu verifikasi
+       otomatis oleh sistem.
+
+5.3. Verifikasi & Approval Pengajuan Pinjaman
+     Permission: PINJAMAN_APPROVE
+     - Setelah semua dokumen wajib berstatus "disetujui", tombol
+       "Verifikasi Pengajuan" berwarna biru AKTIF muncul. Klik untuk
+       mengubah status pinjaman menjadi "diverifikasi".
+     - Apabila masih ada hambatan (ada dokumen yang statusnya
+       belum_diunggah / ditolak / perlu diperbaiki / menunggu_verifikasi)
+       tombol tersebut secara otomatis disembunyikan dan diganti dengan
+       Alert Warning berisi DAFTAR HAMBATAN yang perlu diselesaikan
+       terlebih dahulu (misal "× Slip Gaji: status ditolak").
+     - Setelah status diverifikasi, KC dapat melanjutkan APPROVAL AKHIR
+       (Setujui / Tolak) pengajuan pinjaman:
+         • DISetujui → lanjut ke proses pencairan (generate jadwal
+           angsuran bulanan otomatis sesuai tenor, tambah catatan
+           simpanan masuk untuk bukti pencairan ke rekening anggota).
+           Status pinjaman berubah menjadi "dicairkan" lalu "berjalan".
+         • DITOLAK → status pinjaman menjadi "ditolak" beserta alasannya.
+           Anggota perlu mengajukan ulang pinjaman baru.
+
+5.4. Penghapusan Data Transaksi dan Ekspor Laporan PDF
+     - KC memiliki permission *_DELETE untuk modul transaksi (Simpanan,
+       Pinjaman, Angsuran, Pembayaran) sehingga dapat membatalkan /
+       menghapus entry data yang salah pada Cabangnya sendiri.
+     - KC dapat mengekspor 6 jenis Laporan menjadi file PDF:
+       Anggota, Verifikasi Pendaftaran, Simpanan, Pinjaman, Angsuran,
+       dan Pembayaran Angsuran, lengkap dengan filter periode tanggal
+       dan cabang yang dipilih.
+
+
+BAB 6. PANDUAN PERAN ANGGOTA (PORTAL NASABAH)
+--------------------------------------------------------------------------------
+6.1. Registrasi Mandiri
+     - Calon nasabah yang belum punya akun dapat membuka halaman
+       /register → mengisi form biodata secara online → submit. Sistem
+       membuat status pendaftaran "diajukan" dan mengirim email
+       notifikasi ke petugas Cabang untuk diverifikasi. Setelah status
+       disetujui oleh Teller/KC, anggota menerima email balasan beserta
+       link aktivasi / panduan login.
+
+6.2. Dashboard Anggota
+     - Setelah login anggota hanya bisa melihat data dirinya sendiri:
+       total saldo semua simpanan, total pinjaman yang sedang berjalan
+       (jika ada), grafik sisa angsuran, dan ringkasan transaksi 30
+       hari terakhir.
+
+6.3. Riwayat Simpanan & Pinjaman Pribadi
+     Menu Portal: Simpanan & Pinjaman
+     - Hanya menampilkan baris data milik user tersebut. Tidak dapat
+       melihat simpanan / pinjaman anggota lain. Query scope otomatis
+       memfilter WHERE anggota.user_id = Auth::id().
+
+6.4. Pengajuan Pinjaman Mandiri & Upload Dokumen
+     - Anggota dapat membuat Pengajuan Pinjaman sendiri dari portal
+       (pilih jenis pinjaman, isi nominal, tenor, dan keterangan).
+       Status default selalu "diajukan" menunggu upload dokumen.
+     - Anggota memiliki permission ANGGOTA_DOKUMEN_UPLOAD yang hanya
+       berlaku untuk pengajuan pinjaman MILIKNYA SENDIRI (double guard
+       server-side untuk mencegah akses pinjaman orang lain via ubah
+       parameter URL).
+     - Ketika dokumen ditandai "perlu_diperbaiki" oleh Validator,
+       anggota dapat mengunggah ulang versi baru dari dokumen yang sama
+       melalui halaman detail pinjamannya.
+
+
+BAB 7. SISTEM FILTER, ISOLASI DATA CABANG, DAN KEAMANAN
+--------------------------------------------------------------------------------
+7.1. Filter Cabang & Tanggal Persisten
+     - Setiap halaman index modul (Cabang, Anggota, Simpanan, Pinjaman,
+       Angsuran, Pembayaran, Laporan, Aktivitas Log, serta tabel
+       Anggota Terbaru di Dashboard) menyediakan Filter Card dengan
+       tiga input: Cabang, Tanggal Awal, dan Tanggal Akhir.
+     - Secara default rentang tanggal diset dari tanggal 1 sampai
+       tanggal terakhir pada bulan berjalan.
+     - Hasil filter disimpan ke Session Laravel, dan akan otomatis
+       diterapkan kembali saat user membuka halaman yang sama di
+       lain waktu (hingga user klik "Reset Filter" atau keluar login).
+
+7.2. Isolasi Data Berdasarkan Cabang
+     - Untuk user selain Administrator (Teller, KC), data yang ditampilkan
+       di tabel serta hasil filter otomatis hanya mencakup baris data
+       dengan cabang_id SAMA DENGAN cabang_id milik user tersebut.
+     - Input pilih Cabang pada Filter Card menjadi textbox DISABLED /
+       readonly + input hidden cabang_id yang tetap terkirim saat submit.
+       Meskipun user memodifikasi nilai hidden via DevTools, lapisan
+       ModuleFilterService di sisi server melakukan OVERRIDE paksa
+       dengan cabang_id user asli sehingga upaya bypass SQL / URL
+       parameter tidak akan berhasil.
+
+7.3. Pertahanan Ganda (Double Guard) pada Permission
+     Pertahanan berlapis diterapkan agar kebijakan akses tidak mudah
+     ditembus:
+     1. UI HIDE (Tampilan) : Tombol Tambah, Edit, Hapus, Approve,
+        Export PDF, Kolom Aksi pada tabel, dan link menu Sidebar HANYA
+        dirender oleh Blade jika user memiliki permission yang cocok
+        (menggunakan Blade directive @haspermission / @hasanypermission).
+        User tidak melihat tombol yang tidak bisa ditekan.
+     2. MIDDLEWARE 403 (Keamanan) : Walaupun tombol tidak tampil di UI,
+        setiap route URL di aplikasi dilindungi oleh PermissionMiddleware
+        spesifik per aksi. Jika user mengetik URL langsung di address
+        bar (bypass UI), sistem akan membalas dengan halaman Error 403
+        dan request tidak sampai ke Controller sama sekali.
+     3. QUERY SCOPE SERVER-SIDE : Pada setiap Controller untuk Teller,
+        KC, dan Anggota, query data selalu memuat WHERE cabang_id =
+        user.cabang_id atau WHERE anggota.user_id = Auth::id() agar
+        modifikasi parameter URL seperti ?id=123 (milik cabang lain)
+        tidak mengembalikan hasil data.
+     4. SQL Injection Protection : Semua operasi database menggunakan
+        Eloquent Query Builder / parameter binding, tanpa ada pemakaian
+        DB::raw / whereRaw / selectRaw dengan interpolasi input user
+        secara langsung. Input form divalidasi ketat oleh Form Request
+        kelas terpisah sebelum masuk ke Controller.
+     5. Try-Catch & DB::transaction : Setiap operasi CREATE / UPDATE /
+        DELETE yang memodifikasi lebih dari satu tabel dibungkus dalam
+        DB::beginTransaction - commit / rollBack untuk memastikan
+        integritas data jika terjadi kegagalan di tengah jalan.
+
+
+BAB 8. ENAM JENIS LAPORAN DAN FITUR EKSPOR PDF
+--------------------------------------------------------------------------------
+Laporan dikelompokkan dalam Accordion Dropdown Sidebar menu LAPORAN.
+Setiap jenis dapat dibuka secara independen, memiliki halaman index
+tersendiri dan tombol Export PDF tersendiri per permission:
+
+  1. LAPORAN ANGGOTA
+     - Daftar anggota yang mendaftar pada rentang periode. Digunakan
+       untuk melihat pertumbuhan nasabah per Cabang.
+     - Permission view  : LAPORAN_ANGGOTA_INDEX
+     - Permission export: LAPORAN_ANGGOTA_EXPORT
+
+  2. LAPORAN VERIFIKASI PENDAFTARAN
+     - Rekap anggota yang mendaftar mandiri beserta status verifikasi
+       (diajukan / diverifikasi / disetujui / ditolak) dan tanggal
+       tindak lanjut validator.
+     - Permission view  : LAPORAN_VERIFIKASI_INDEX
+     - Permission export: LAPORAN_VERIFIKASI_EXPORT
+
+  3. LAPORAN SIMPANAN
+     - Semua transaksi setoran / penarikan simpanan anggota sesuai
+       periode. Dikelompokkan per Jenis Simpanan dan per Cabang.
+     - Permission view  : LAPORAN_SIMPANAN_INDEX
+     - Permission export: LAPORAN_SIMPANAN_EXPORT
+
+  4. LAPORAN PINJAMAN
+     - Daftar pengajuan pinjaman sesuai periode lengkap dengan status
+       (diajukan, diverifikasi, disetujui, ditolak, dicairkan, berjalan,
+       lunas, dibatalkan).
+     - Permission view  : LAPORAN_PINJAMAN_INDEX
+     - Permission export: LAPORAN_PINJAMAN_EXPORT
+
+  5. LAPORAN ANGSURAN
+     - Jadwal angsuran bulanan seluruh pinjaman berjalan lengkap dengan
+       status Lunas / Belum Lunas / Telat dan nominal denda. Digunakan
+       KC untuk memantau kolektibilitas.
+     - Permission view  : LAPORAN_ANGSURAN_INDEX
+     - Permission export: LAPORAN_ANGSURAN_EXPORT
+
+  6. LAPORAN PEMBAYARAN ANGSURAN
+     - Riwayat realisasi pembayaran yang dilakukan anggota setiap bulan
+       beserta bukti transfer / tunai dan user operator yang memasukkan
+       data.
+     - Permission view  : LAPORAN_PEMBAYARAN_INDEX
+     - Permission export: LAPORAN_PEMBAYARAN_EXPORT
+
+Aturan tampilan: Apabila pada periode filter yang dipilih TIDAK ADA DATA
+sama sekali, halaman Laporan HANYA menampilkan alert bertuliskan
+"Belum ada data pada periode ini" tanpa memunculkan struktur tabel
+(thead, tbody, tombol export PDF) sama sekali, guna mencegah galat
+inisialisasi DataTables pada tabel kosong.
+
+
+BAB 9. ALUR BISNIS END-TO-END SECARA SEKUENSIAL
+--------------------------------------------------------------------------------
+Berikut alur urutan kerja normal sebuah koperasi dalam satu siklus
+pinjaman anggota (dari pendaftaran anggota sampai angsuran lunas):
+
+  TAHAP 1 — PENDAFTARAN ANGGOTA
+    • Opsi A (offline via Teller) : Nasabah datang ke kantor Cabang.
+      Teller mengisi form Tambah Anggota (biodata + email). Sistem
+      otomatis membuat akun login Role Anggota, kirim email ke
+      anggota berisi panduan login & wajib ganti password.
+    • Opsi B (online mandiri) : Calon nasabah mengisi /register.
+      Status pendaftaran = diajukan → Teller / KC memverifikasi
+      biodata → disetujui → anggota dapat login.
+
+  TAHAP 2 — SETORAN SIMPANAN AWAL
+    Teller mencatat Simpanan Pokok & Simpanan Wajib pertama anggota
+    agar anggota memenuhi syarat administrasi mengajukan pinjaman.
+
+  TAHAP 3 — PENGAJUAN PINJAMAN + UPLOAD DOKUMEN
+    • Anggota (dibantu Teller atau secara mandiri via portal) mengisi
+      form Pengajuan Pinjaman (Jenis Pinjaman, Jumlah, Tenor).
+    • Sistem otomatis men-generate daftar dokumen wajib.
+    • Anggota / Teller mengunggah setiap dokumen (KTP, KK, Slip Gaji,
+      dll). Hasil kompresi disimpan ke storage/app/public/dokumen-pinjaman
+      dengan tautan publik via /storage/ (symlink).
+
+  TAHAP 4 — VERIFIKASI DOKUMEN OLEH VALIDATOR (KC / ADMIN)
+    KC membuka detail pengajuan, memeriksa setiap dokumen. Untuk
+    dokumen yang kurang jelas KC memilih "Perlu Diperbaiki" beserta
+    catatan. Anggota mengunggah ulang. KC memverifikasi ulang sampai
+    SEMUA dokumen wajib memiliki status "disetujui".
+
+  TAHAP 5 — VERIFIKASI PENGAJUAN + APPROVAL AKHIR PINJAMAN
+    • Semua dokumen disetujui → tombol "Verifikasi Pengajuan" aktif.
+      Klik → status pinjaman berubah menjadi "diverifikasi".
+    • KC melakukan analisis kredit kelayakan → memutuskan:
+        - Disetujui → lanjut ke Tahap 6.
+        - Ditolak  → status jadi "ditolak" (end).
+
+  TAHAP 6 — PENCAIRAN & PEMBUATAN JADWAL ANGSURAN
+    Pinjaman disetujui: sistem mencatat pencairan (tambah simpanan
+    masuk anggota), generate baris angsuran bulanan sebanyak tenor,
+    dan menghitung angsuran per bulan + bunga. Status berubah:
+    dicairkan → berjalan.
+
+  TAHAP 7 — PEMBAYARAN ANGSURAN BULANAN (BERULANG)
+    Setiap bulan sampai lunas:
+    • Anggota bayar ke Teller (tunai / transfer).
+    • Teller entri Pembayaran Angsuran → kaitkan ke nomor angsuran
+      bulan tersebut. Jika lewat jatuh tempo → denda otomatis.
+    • Angsuran bersangkutan statusnya berubah menjadi "lunas".
+
+  TAHAP 8 — PINJAMAN LUNAS & PELAPORAN
+    Setelah seluruh angsuran lunas: status pinjaman berubah "lunas".
+    Semua transaksi (simpanan, pinjaman, angsuran, pembayaran) dapat
+    ditarik rekapnya oleh KC / Admin sebagai Laporan PDF bulanan
+    sesuai periode dan Cabang.
+
+
+BAB 10. TROUBLESHOOTING UMUM
+--------------------------------------------------------------------------------
+  Q1. Login berhasil tapi Dashboard menampilkan kosong / 0 semua?
+      Periksa filter Cabang di Dashboard — karena filter persistensi,
+      jika sebelumnya memilih cabang lain lalu logout-login kembali,
+      filter tetap terbawa. Klik tombol "Reset Filter" atau ubah
+      pilihan Cabang & Tanggal.
+
+  Q2. Tombol Tambah / Hapus / Export PDF tidak muncul padahal sebelumnya
+      ada?
+      Hal tersebut normal. Permission sistem bersifat granular per
+      aksi. Cek Role Anda (bila Teller memang tidak punya akses
+      Hapus/Export/Approve). Hubungi Administrator bila perlu update
+      permission Role.
+
+  Q3. Sudah upload semua dokumen tapi tombol Verifikasi Pengajuan tidak
+      muncul?
+      Buka tab hambatan (Alert Warning) di atas halaman detail pinjaman.
+      Paling tidak ada SATU dokumen wajib yang statusnya bukan
+      "disetujui" (misal masih perlu_diperbaiki / ditolak / belum
+      diunggah). Selesaikan semua hambatan satu per satu lalu refresh.
+
+  Q4. Lupa password dan link reset email tidak sampai ke inbox?
+      Periksa folder Promosi / Spam email pengguna. Bila tetap tidak
+      ada, minta Administrator untuk generate ulang link atau reset
+      password secara manual via menu Users → Edit User.
+
+  Q5. Gambar bukti pembayaran / dokumen KTP tidak bisa dibuka di URL?
+      Pastikan perintah `php artisan storage:link` sudah dijalankan
+      sehingga symlink public/storage menunjuk ke storage/app/public.
+      File dokumen disimpan di disk public sesuai .env
+      FILESYSTEM_DISK=public.
+
+  Q6. Error 403 muncul padahal Role saya seharusnya bisa akses?
+      Laporkan ke Administrator sistem untuk memeriksa permission
+      yang terasosiasi ke Role Anda. Administrator dapat menambah
+      permission melalui Menu MASTER SISTEM → Roles → Permission.
+      (Role Administrator otomatis bisa semua tanpa perlu diceklis).
 
 ================================================================================
-[ALUR 1]  AUTENTIKASI LOGIN, LUPA PASSWORD, RESET PASSWORD (SMTP)
-================================================================================
-SKENARIO 1A. USER LUPA PASSWORD (BELUM PERNAH LOGIN, LANGSUNG LUPA):
-  1.  Buka /login   →  klik link "Lupa Password?" pojok kanan bawah.
-  2.  /lupa-password → isi Email yang terdaftar di tabel users → Kirim.
-  3.  Backend:
-        a.  Validasi email exist (ForgotPasswordRequest).
-        b.  Generate random 64-char token, Hash::make(token), simpan ke
-            tabel password_resets (email + hashed token + created_at).
-        c.  Kirim Email via Notify → ResetPasswordNotification (MailMessage),
-            tombol "Reset Password" di email link ke:
-               {APP_URL}/reset-password/{TOKEN_PLAINTEXT}?email=USER_EMAIL
-            Masa berlaku link = 60 menit.
-  4.  User buka email  →  klik tombol Reset Password  →  terbuka halaman
-      /reset-password/{token}?email=xxx.
-  5.  Isi Password Baru + Konfirmasi Password (min 8 karakter, sama persis).
-  6.  Backend proses (ResetPasswordRequest → DB::transaction):
-        a.  Cari row password_resets by email.
-        b.  Hash::check(plaintext token dari URL, hash di DB)  →  WAJIB COCOK.
-        c.  Cek kadaluarsa (max 60 menit).
-        d.  Update users.password = Hash::make(password_baru).
-        e.  ✅ OTOMATIS users.force_change_password = 0  (TIDAK AKAN MUNCUL
-            MODAL FORCE RESET DI DASHBOARD KETIKA LOGIN NANTI, karena user
-            BARU SAJA bikin password sendiri via email link).
-        f.  Catat AktivitasLog "Password direset via link lupa password".
-        g.  Hapus semua token user di tabel password_resets (sekali pakai).
-  7.  Redirect ke /login  →  pesan sukses.
-  8.  Login dengan password baru  →  DASHBOARD TANPA modal reset password ✅.
-
-
-SKENARIO 1B. USER BARU PERTAMA KALI LOGIN (password default / force_change_password=1)
-  TANPA PERNAH pilih Lupa Password:
-  1.  Login berhasil → cek field force_change_password = 1.
-  2.  Modal Bootstrap backdrop-static (TIDAK BISA ditutup klik luar / ESC)
-      muncul otomatis di atas dashboard: "Anda diminta mengganti password".
-  3.  Isi password lama + password baru + konfirmasi → Simpan.
-  4.  Sukses → force_change_password di-set 0 → refresh halaman.
-
-
-================================================================================
-[ALUR 2]  PENGAJUAN PINJAMAN + UPLOAD DOKUMEN + KOMPRESI GAMBAR
-================================================================================
-  1.  Menu Pinjaman → Tambah Pengajuan → Pilih Anggota, Pilih Jenis Pinjaman,
-      isi nominal, tenor (bulan), bunga % → Submit Simpan.
-  2.  Backend PinjamanController@store  →  status default 'diajukan'.
-      Setelah pinjaman ID didapat → METHOD seedDokumenWajibForPinjaman():
-        → Ambil daftar MasterDokumen wajib dari pivot jenis_pinjaman_dokumen_persyaratan
-          (JenisPinjaman->dokumenPersyaratanWajib).
-        → upsert() ke tabel pinjaman_dokumen (unique pair pinjaman_id+master_dokumen_id).
-        → Setiap dokumen default status = 'belum_diunggah'.
-  3.  Redirect otomatis ke halaman Detail Pengajuan (pinjaman/{id}).
-  4.  Tampilkan Progress Bar Dokumen (X / Y disetujui).
-  5.  User / Teller upload 1 per 1 dokumen via form upload di setiap kartu dokumen:
-        a.  File JPG / JPEG / PNG  →  panggil global helper:
-              compressImage($file, 'dokumen-pinjaman/'.$pinjaman->id, 80, 1600);
-            Helper langkahnya:
-              • Cek ekstensi, panggil GD imagecreatefromjpeg / imagecreatefrompng
-              • Hitung ratio resize jika lebar > 1600px → ukuran tinggi menyesuaikan
-              • imagecopyresampled() + imagejpeg($gd, null, 80)  →  stream ke temp file
-              • PNG preserve alpha channel (imagesavealpha=true) agar transparan OK
-              • Nama file: Str::random(40) + ext
-              • Storage::disk('public')->put('dokumen-pinjaman/{id}/name.jpg')
-              • Hanya simpan HASIL KOMPRESI, file asli dibuang.
-              • Return relative path (tanpa /storage/ prefix).
-        b.  File PDF  →  TIDAK di-compress, validasi mimes + max 10 MB → storeAs
-            langsung ke folder sama.
-        c.  SEBELUM simpan file baru: jika sebelumnya ada file_path di tabel,
-            Storage::disk('public')->delete($oldPath) agar storage tidak penuh.
-        d.  Update pinjaman_dokumen:
-              file_path        = path kompresi
-              nama_file_asli   = $_FILES original name
-              ukuran_file (KB)
-              tipe_mime
-              uploader_users_id = Auth::id()
-              status           = 'menunggu_verifikasi'  ← upload baru selalu
-              catatan          = null (hapus catatan lama jika sebelumnya ditolak)
-              verifikator + tgl_verifikasi = null.
-
-
-================================================================================
-[ALUR 3]  VERIFIKASI DOKUMEN OLEH VALIDATOR (KEPALA CABANG / ADMIN)
-================================================================================
-  Permission dibutuhkan: PINJAMAN_DOKUMEN_VERIFIKASI
-  1.  KC / Admin buka halaman Detail Pengajuan Pinjaman.
-  2.  Lihat daftar kartu dokumen, untuk setiap dokumen ada:
-      • Preview gambar (jika tipe_mime image/*)
-      • Tombol Lihat (tab baru) / Download
-      • Jika status = menunggu_verifikasi / ditolak / perlu_diperbaiki →
-        Muncul form VERIFIKASI di bawah kartu:
-            - Select Status  : Disetujui / Ditolak / Perlu Diperbaiki
-            - Textarea Catatan :
-                  * WAJIB DIISI jika pilih "Ditolak" atau "Perlu Diperbaiki"
-                    (DokumenPinjamanVerifikasiRequest menggunakan sometimes()
-                    validation rule conditional).
-  3.  Submit → Backend:
-        • Update pinjaman_dokumen.status + catatan
-        • verifikator_users_id = Auth::id()
-        • tgl_verifikasi = now()  ← otomatis diset model booted() updating
-          (hanya jika status di-ubah ke disetujui / ditolak / perlu_diperbaiki).
-
-
-================================================================================
-[ALUR 4]  ATURAN KETAT: APPROVAL PINJAMAN DOKUMEN WAJIB 100% DISETUJUI
-================================================================================
-  STATUS PINJAMAN TETAP 8 ENUM existing (TIDAK DITAMBAH):
-    diajukan → diverifikasi → disetujui / ditolak → dicairkan → berjalan → lunas
-    atau dibatalkan.
-
-  ATURAN VERIFIKASI (PINJAMAN DIVERIFIKASI):
-  Sebelum status pinjaman bisa diubah "diajukan" → "diverifikasi" (tombol
-  "Verifikasi Pengajuan" di halaman detail), sistem WAJIB menjalankan method
-  Pinjaman::semuaDokumenWajibDisetujui():
-
-    FOREACH (semua baris pinjaman_dokumen WHERE master_dokumen_id IN daftar wajib):
-        JIKA status != 'disetujui' → return FALSE
-    return TRUE
-
-  KALAU METHOD TERSEBUT MERETURN FALSE → tombol Verifikasi Pengajuan TIDAK MUNCUL,
-  diganti dengan ALERT WARNING DAFTAR HAMBATAN (contoh):
-    × KTP: status masih perlu_diperbaiki.
-    × Slip Gaji: status belum_diunggah.
-    × Surat Kerja: status ditolak.
-
-  HANYA JIKA SEMUA DOKUMEN WAJIB SUDAH STATUS 'disetujui':
-    → tombol "Verifikasi Pengajuan" muncul warna biru solid.
-    → klik → status pinjaman berubah jadi 'diverifikasi'.
-
-  SETELAH status = diverifikasi → flow approval existing (setujui / tolak pinjaman
-  + pencairan) berjalan normal seperti biasa.
-
-
-================================================================================
-[ALUR 5]  PENCairan + ANGSURAN (existing tetap jalan)
-================================================================================
-  Status 'disetujui'  →  buat transaksi simpanan masuk (pencairan ke anggota)
-                         + generate jadwal angsuran per bulan sebanyak tenor.
-  Status 'berjalan'   →  Teller bisa input Pembayaran Angsuran setiap bulan
-                         (denda otomatis jika lewat jatuh tempo).
-  Status 'lunas'      →  seluruh angsuran lunas.
-
-
-================================================================================
-RINGKASAN FILE MODUL UTAMA FITUR INI (UNTUK REFERENSI CEPAT):
-================================================================================
-  • config/mail.php                 → mapping MAIL + SMTP_ priority fallback
-  • database/migrations/*050000*    → 3 file migration dokumen pinjaman
-  • database/migrations/*070000*    → password_resets migration
-  • app/Helpers/image_helper.php    → global function compressImage()
-  • app/Models/MasterDokumen.php + JenisPinjamanDokumenPersyaratan.php +
-    app/Models/PinjamanDokumen.php  → 3 model dokumen baru UUID.
-  • app/Http/Controllers/JenisPinjamanController.php → sync pivot persyaratan
-  • app/Http/Controllers/PinjamanController.php      → show, upload, verifikasi
-  • app/Http/Controllers/AuthController.php          → forgot/reset password 4 method
-  • app/Http/Requests/Password/*Request.php + Pinjaman/*Request.php
-  • app/Notifications/ResetPasswordNotification.php
-  • routes/web.php                   → lupa-password, reset-password,
-                                       pinjaman.show, upload, verifikasi
-  • resources/views/auth/login.blade.php          → link lupa password
-  • resources/views/auth/forgot-password.blade.php
-  • resources/views/auth/reset-password.blade.php
-  • resources/views/modules/jenis-pinjaman/form-persyaratan-dokumen.blade.php
-  • resources/views/modules/pinjaman/index.blade.php (kolom Progress)
-  • resources/views/modules/pinjaman/show.blade.php (halaman detail dokumen)
-  • database/seeders/DatabaseSeeder.php → 5 MasterDokumen + 4 pivot jenis pinjaman
-                                          + 2 permissions PINJAMAN_DOKUMEN_*
+                          TOTAL 95 PERMISSION GRANULAR
+                       4 ROLE DEFAULT DENGAN ISOLASI CABANG
+                              DEFENSE IN DEPTH RBAC
 ================================================================================

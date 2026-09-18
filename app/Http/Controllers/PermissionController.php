@@ -90,4 +90,14 @@ class PermissionController extends Controller
             return redirect()->back()->with('error', 'Permission gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $permission = Permission::with('roles')->withCount('roles')->findOrFail($id);
+            return view("modules.permissions.show", compact('permission'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail permission: ' . $e->getMessage());
+        }
+    }
 }

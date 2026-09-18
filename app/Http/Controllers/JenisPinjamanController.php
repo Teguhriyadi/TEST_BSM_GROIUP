@@ -134,4 +134,21 @@ class JenisPinjamanController extends Controller
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $jenisPinjaman = JenisPinjaman::with('dokumenPersyaratanWajib', 'dokumenPersyaratan')
+                ->withCount('pinjaman')
+                ->findOrFail($id);
+            $daftarPinjaman = $jenisPinjaman->pinjaman()
+                ->orderBy('created_at', 'desc')
+                ->limit(25)
+                ->with('anggota:id,nama,no_anggota', 'cabang:id,nama_cabang')
+                ->get();
+            return view("modules.jenis-pinjaman.show", compact('jenisPinjaman', 'daftarPinjaman'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail jenis pinjaman: ' . $e->getMessage());
+        }
+    }
 }

@@ -16,12 +16,27 @@ class PinjamanUpdateRequest extends FormRequest
     public function rules(): array
     {
         $pinjamanId = $this->route('pinjaman')?->id ?? $this->route('pinjaman');
+        if (empty($pinjamanId) && $this->segments()) {
+            $segs = array_values($this->segments());
+            foreach ($segs as $idx => $seg) {
+                if ($seg === 'pinjaman' && isset($segs[$idx + 1])) {
+                    $candidate = $segs[$idx + 1];
+                    if (strlen((string) $candidate) >= 30 && ! in_array($candidate, ['create','edit'], true)) {
+                        $pinjamanId = $candidate;
+                        break;
+                    }
+                }
+            }
+        }
+        if (! empty($pinjamanId) && is_object($pinjamanId)) {
+            $pinjamanId = $pinjamanId->id ?? (string) $pinjamanId;
+        }
 
         return [
             'anggota_id' => 'required|uuid|exists:anggota,id',
             'cabang_id' => 'required|uuid|exists:cabang,id',
             'jenis_pinjaman_id' => 'required|uuid|exists:jenis_pinjaman,id',
-            'nomor_pinjaman' => 'required|string|max:30|unique:pinjaman,nomor_pinjaman,' . $pinjamanId,
+            'nomor_pinjaman' => 'nullable|string|max:30|unique:pinjaman,nomor_pinjaman,' . $pinjamanId,
             'jumlah_pinjaman' => 'required|numeric|min:0',
             'tenor' => 'required|integer|min:1',
             'bunga' => 'required|numeric|min:0|max:100',
@@ -45,7 +60,6 @@ class PinjamanUpdateRequest extends FormRequest
             'jenis_pinjaman_id.required' => 'Jenis Pinjaman wajib dipilih.',
             'jenis_pinjaman_id.uuid' => 'Format data Jenis Pinjaman tidak valid.',
             'jenis_pinjaman_id.exists' => 'Jenis Pinjaman yang dipilih tidak ditemukan.',
-            'nomor_pinjaman.required' => 'Nomor Pinjaman wajib diisi.',
             'nomor_pinjaman.max' => 'Nomor Pinjaman maksimal 30 karakter.',
             'nomor_pinjaman.unique' => 'Nomor Pinjaman tersebut sudah terdaftar, gunakan nomor lain.',
             'jumlah_pinjaman.required' => 'Jumlah Pinjaman wajib diisi.',

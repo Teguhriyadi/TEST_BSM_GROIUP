@@ -131,4 +131,19 @@ class UserController extends Controller
             return redirect()->back()->with('error', 'User gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $user = User::with(['cabang', 'role', 'role.permissions'])->findOrFail($id);
+            $aktivitasTerakhir = AktivitasLog::query()
+                ->where('users_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(30)
+                ->get();
+            return view("modules.users.show", compact('user', 'aktivitasTerakhir'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail user: ' . $e->getMessage());
+        }
+    }
 }

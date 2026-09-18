@@ -7,8 +7,11 @@
     $bisaVerifikasiDokumen = Auth::check() && Auth::user()->hasPermission('PINJAMAN_DOKUMEN_VERIFIKASI');
     $bisaUploadDokumen = Auth::check() && (Auth::user()->hasPermission('PINJAMAN_DOKUMEN_UPLOAD') || Auth::user()->hasPermission('ANGGOTA_DOKUMEN_UPLOAD'));
     $bisaVerifikasiPengajuan = Auth::check() && Auth::user()->hasPermission('PINJAMAN_APPROVE');
+    $bisaPersetujuanKC = Auth::check() && (Auth::user()->hasPermission('PINJAMAN_APPROVE') || Auth::user()->hasRole('Kepala Cabang') || Auth::user()->hasRole('Administrator'));
+    $bisaPencairanTeller = Auth::check() && (Auth::user()->hasPermission('PINJAMAN_CAIRKAN') || Auth::user()->hasRole('Teller') || Auth::user()->hasRole('Administrator'));
     $dapatDiverifikasi = $pinjaman->dapatDiverifikasi();
     $hambatanVerifikasi = $pinjaman->hambatan_verifikasi;
+    $daftarAngsuran = $pinjaman->angsuran ? $pinjaman->angsuran->sortBy('angsuran_ke')->values() : collect();
 @endphp
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -130,16 +133,125 @@
                                     <i class="bi bi-check-circle-fill me-1"></i>
                                     Seluruh dokumen wajib sudah disetujui.
                                 </div>
-                                <div class="small text-muted">Anda dapat memverifikasi pengajuan ini sehingga status berubah menjadi "Diverifikasi" dan siap memasuki tahap persetujuan.</div>
+                                <div class="small text-muted">Verifikasi pengajuan oleh Teller → status berubah "Diverifikasi" → siap disetujui Kepala Cabang.</div>
                             </div>
-                            <button type="submit" class="btn btn-orange text-white px-4">
+                            <button type="submit" class="btn btn-info text-white px-4">
                                 <i class="bi bi-shield-check me-1"></i> Verifikasi Pengajuan
                             </button>
                         </form>
                     @elseif($pinjaman->status !== 'diajukan')
                         <div class="alert alert-info mb-0">
-                            Status pengajuan saat ini adalah <strong>{{ ucwords(str_replace('_', ' ', $pinjaman->status)) }}</strong>. Verifikasi pengajuan hanya dapat dilakukan ketika status masih "Diajukan" dan seluruh dokumen wajib disetujui.
+                            Status pengajuan saat ini adalah <strong>{{ ucwords(str_replace('_', ' ', $pinjaman->status)) }}</strong>. Verifikasi pengajuan (Teller) hanya dapat dilakukan ketika status masih "Diajukan" dan seluruh dokumen wajib disetujui.
                         </div>
+                    @endif
+                @endif
+
+                @if($pinjaman->status === 'diverifikasi' && $bisaPersetujuanKC)
+                    <hr class="my-4">
+                    <div class="card border border-info mb-0">
+                        <div class="card-header bg-info text-white py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div class="fw-semibold"><i class="bi bi-clipboard-check me-1"></i> Persetujuan Kepala Cabang</div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div>
+                                    <div class="fw-semibold text-primary mb-1">Pengajuan siap disetujui atau ditolak.</div>
+                                    <div class="small text-muted">Disetujui → siap dicairkan Teller. Ditolak → pengajuan batal.</div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 align-items-stretch">
+                                    <form method="POST" action="{{ route('pinjaman.reject', $pinjaman->id) }}" class="d-flex flex-wrap gap-2 align-items-center" onsubmit="return confirm('Yakin ingin MENOLAK pengajuan pinjaman ini?');">
+                                        @csrf
+                                        <input type="text" name="catatan_penolakan" maxlength="500" placeholder="Catatan penolakan (opsional)" class="form-control form-control-sm" style="min-width:220px;">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="bi bi-x-circle me-1"></i> Tolak Pengajuan
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ route('pinjaman.approve', $pinjaman->id) }}" onsubmit="return confirm('Yakin ingin MENYETUJUI pengajuan pinjaman ini?');">
+                                        @csrf
+                                        <button type="submit" class="btn btn-success text-white px-4">
+                                            <i class="bi bi-check2-square me-1"></i> Setujui Pengajuan
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                @if($pinjaman->status === 'disetujui' && $bisaPencairanTeller)
+                    <hr class="my-4">
+                    <div class="card border border-warning mb-0">
+                        <div class="card-header bg-orange text-white py-2 px-3">
+                            <div class="fw-semibold"><i class="bi bi-cash-stack me-1"></i> Pencairan Pinjaman (Teller)</div>
+                        </div>
+                        <div class="card-body p-3">
+                            <form method="POST" action="{{ route('pinjaman.cairkan', $pinjaman->id) }}" onsubmit="return confirm('Yakin ingin MENCAIRKAN pinjaman ini? Jadwal angsuran akan dibuat otomatis sebanyak tenor.');">
+                                @csrf
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-5 col-lg-4">
+                                        <label class="form-label small fw-medium mb-1">Tanggal Pencairan</label>
+                                        <input type="date" name="tgl_cair" value="{{ old('tgl_cair', date('Y-m-d')) }}" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-7 col-lg-8 d-flex flex-wrap gap-2 justify-content-md-end">
+                                        <button type="submit" class="btn btn-orange text-white px-5">
+                                            <i class="bi bi-bank2 me-1"></i> Cairkan Pinjaman & Buat Jadwal Angsuran
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-2">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Setelah dicairkan, jadwal angsuran sebanyak <strong>{{ (int) $pinjaman->tenor }} bulan</strong> akan dibuat otomatis dan langsung muncul di modul Angsuran.
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endif
+
+                @if(in_array($pinjaman->status, ['dicairkan','berjalan','lunas'], true))
+                    <hr class="my-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="fw-semibold text-primary"><i class="bi bi-calendar2-range me-1"></i> Jadwal Angsuran ({{ $daftarAngsuran->count() }} / {{ (int) $pinjaman->tenor }} Bulan)</div>
+                        @haspermission('ANGSURAN_INDEX')
+                            <a href="{{ route('angsuran.index') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-arrow-up-right-square me-1"></i> Buka Modul Angsuran
+                            </a>
+                        @endhaspermission
+                    </div>
+                    @if($daftarAngsuran->count() > 0)
+                        <div class="table-responsive mt-3">
+                            <table class="table table-sm table-striped table-bordered align-middle mb-0">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="text-center" width="6%">Ke</th>
+                                        <th class="text-center">Jatuh Tempo</th>
+                                        <th class="text-end">Nominal</th>
+                                        <th class="text-end">Denda</th>
+                                        <th class="text-end">Total Bayar</th>
+                                        <th class="text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($daftarAngsuran as $a)
+                                        @php
+                                            $cls = 'secondary';
+                                            if ($a->status === 'lunas') $cls = 'success';
+                                            elseif ($a->status === 'sebagian_lunas') $cls = 'warning';
+                                            elseif (\Carbon\Carbon::parse($a->tanggal_jatuh_tempo)->isPast() && $a->status !== 'lunas') $cls = 'danger';
+                                        @endphp
+                                        <tr>
+                                            <td class="text-center fw-semibold">{{ $a->angsuran_ke }}</td>
+                                            <td class="text-center">@tanggal($a->tanggal_jatuh_tempo)</td>
+                                            <td class="text-end">Rp {{ number_format($a->nominal, 0, ',', '.') }}</td>
+                                            <td class="text-end">Rp {{ number_format($a->denda ?? 0, 0, ',', '.') }}</td>
+                                            <td class="text-end">Rp {{ number_format($a->total_bayar, 0, ',', '.') }}</td>
+                                            <td class="text-center"><span class="badge bg-{{ $cls }} text-white py-1 px-3">{{ ucwords(str_replace('_',' ',$a->status)) }}</span></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="small text-muted mt-2">Belum ada data jadwal angsuran. Silakan lakukan pencairan pinjaman oleh Teller.</div>
                     @endif
                 @endif
             </div>
@@ -214,8 +326,8 @@
                                                 @if(! empty($dok->tgl_verifikasi))
                                                     <div class="small text-muted mb-1">
                                                         Diverifikasi pada: @tanggalWaktu($dok->tgl_verifikasi)
-                                                        @if(! empty($dok->verifikator?->name))
-                                                            · Oleh <strong>{{ $dok->verifikator->name }}</strong>
+                                                        @if(! empty($dok->verifikator?->nama))
+                                                            · Oleh <strong>{{ $dok->verifikator->nama }}</strong>
                                                         @endif
                                                     </div>
                                                 @endif

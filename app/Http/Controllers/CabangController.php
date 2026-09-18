@@ -114,4 +114,24 @@ class CabangController extends Controller
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $cabang = Cabang::withCount(['anggota', 'simpanan', 'pinjaman', 'users'])->findOrFail($id);
+            $listAnggota = $cabang->anggota()->orderBy('created_at', 'desc')->limit(20)->get();
+            $listUsers = $cabang->users()->orderBy('created_at', 'desc')->limit(20)->get();
+            $listSimpanan = $cabang->simpanan()->orderBy('created_at', 'desc')->limit(20)->with('anggota:id,nama,no_anggota', 'jenisSimpanan:id,nama_jenis')->get();
+            $listPinjaman = $cabang->pinjaman()->orderBy('created_at', 'desc')->limit(20)->with('anggota:id,nama,no_anggota', 'jenisPinjaman:id,nama_jenis')->get();
+            return view("modules.cabang.show", compact(
+                'cabang',
+                'listAnggota',
+                'listUsers',
+                'listSimpanan',
+                'listPinjaman'
+            ));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail cabang: ' . $e->getMessage());
+        }
+    }
 }

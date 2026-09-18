@@ -2,20 +2,25 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class RolePermission extends Model
+class RolePermission extends Pivot
 {
-    use HasUuids;
-    
-    public $incrementing = false;
-    protected $keyType = "string";
-
     protected $table = 'role_permission';
 
-    protected $fillable = [
-        'role_id',
-        'permission_id',
-    ];
+    public $incrementing = false;
+
+    public $primaryKey = 'id';
+
+    protected $keyType = 'string';
+
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 }

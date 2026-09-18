@@ -185,8 +185,9 @@ class PinjamanController extends Controller
             'cabang:id,nama_cabang',
             'jenisPinjaman.dokumenPersyaratanWajib',
             'dokumen.masterDokumen',
-            'dokumen.uploader:id,name',
-            'dokumen.verifikator:id,name',
+            'dokumen.uploader:id,nama',
+            'dokumen.verifikator:id,nama',
+            'angsuran',
         ])->findOrFail($id);
 
         if (Auth::check() && Auth::user()->hasRole('Anggota')) {
@@ -265,6 +266,9 @@ class PinjamanController extends Controller
                 $filename = Str::random(40) . '.pdf';
                 $relativePath = (string) $file->storeAs(rtrim($directory, '/'), $filename, 'public');
             } else {
+                if (! function_exists('compressImage')) {
+                    require_once app_path('Helpers/image_helper.php');
+                }
                 $relativePath = compressImage($file, $directory, 80, 1600);
                 if ($relativePath === null || trim($relativePath) === '') {
                     throw new \RuntimeException('Gagal menyimpan file dokumen. Silakan coba kembali.');
@@ -359,7 +363,7 @@ class PinjamanController extends Controller
                     ->route('pinjaman.show', $pinjaman->id)
                     ->with('error', $msg);
             }
-            if ($pinjaman->status !== 'diajukan') {
+            if (! in_array($pinjaman->status, ['diajukan', 'perlu_diperbaiki'], true)) {
                 return redirect()
                     ->route('pinjaman.show', $pinjaman->id)
                     ->with('error', 'Pengajuan hanya bisa diverifikasi ketika status "Diajukan".');
@@ -368,13 +372,181 @@ class PinjamanController extends Controller
             DB::commit();
             return redirect()
                 ->route('pinjaman.show', $pinjaman->id)
-                ->with('success', 'Pengajuan pinjaman telah diverifikasi dan siap masuk ke proses persetujuan.');
+                ->with('success', 'Pengajuan pinjaman telah diverifikasi dan siap masuk ke proses persetujuan Kepala Cabang.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()
                 ->route('pinjaman.show', $pinjaman->id)
                 ->with('error', 'Gagal melakukan verifikasi pengajuan: ' . $e->getMessage());
         }
+    }
+
+    public function approvePengajuan(Request $request, $pinjamanId)
+    {
+        if (! Auth::check()) {
+            return redirect(route('login'));
+        }
+        $user = Auth::user();
+        if (! $user->hasRole('Administrator') && ! $user->can('PINJAMAN_APPROVE')) {
+            if ($user->can('PINJAMAN_APPROVE') === false && ! $user->hasRole('Kepala Cabang')) {
+                abort(403);
+            }
+        }
+
+        $pinjaman = Pinjaman::findOrFail($pinjamanId);
+        DB::beginTransaction();
+        try {
+            if ($pinjaman->status !== 'diverifikasi') {
+                return redirect()
+                    ->route('pinjaman.show', $pinjaman->id)
+                    ->with('error', 'Pengajuan hanya bisa disetujui ketika status "Diverifikasi".');
+            }
+            $pinjaman->update(['status' => 'disetujui']);
+            DB::commit();
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('success', 'Pengajuan pinjaman telah DISSETUJUI. Silakan lanjutkan ke tahap pencairan oleh Teller.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('error', 'Gagal menyetujui pengajuan: ' . $e->getMessage());
+        }
+    }
+
+    public function tolakPengajuan(Request $request, $pinjamanId)
+    {
+        if (! Auth::check()) {
+            return redirect(route('login'));
+        }
+        $user = Auth::user();
+        if (! $user->hasRole('Administrator') && ! $user->can('PINJAMAN_APPROVE')) {
+            if ($user->can('PINJAMAN_APPROVE') === false && ! $user->hasRole('Kepala Cabang')) {
+                abort(403);
+            }
+        }
+
+        $pinjaman = Pinjaman::findOrFail($pinjamanId);
+        $validated = $request->validate([
+            'catatan_penolakan' => 'nullable|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            if (! in_array($pinjaman->status, ['diverifikasi', 'disetujui'], true)) {
+                return redirect()
+                    ->route('pinjaman.show', $pinjaman->id)
+                    ->with('error', 'Pengajuan hanya bisa ditolak pada status Diverifikasi atau Disetujui.');
+            }
+            $catatan = $validated['catatan_penolakan'] ?? null;
+            $pinjaman->update([
+                'status' => 'ditolak',
+            ]);
+            DB::commit();
+            $msg = 'Pengajuan pinjaman telah ditolak.';
+            if ($catatan !== null && trim((string) $catatan) !== '') {
+                $msg .= ' Catatan: ' . $catatan;
+            }
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('success', $msg);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('error', 'Gagal menolak pengajuan: ' . $e->getMessage());
+        }
+    }
+
+    public function cairkanPinjaman(Request $request, $pinjamanId)
+    {
+        if (! Auth::check()) {
+            return redirect(route('login'));
+        }
+        $user = Auth::user();
+        if (! $user->hasRole('Administrator') && ! $user->can('PINJAMAN_CAIRKAN')) {
+            if ($user->can('PINJAMAN_CAIRKAN') === false && ! $user->hasRole('Teller')) {
+                abort(403);
+            }
+        }
+
+        $pinjaman = Pinjaman::with('angsuran')->findOrFail($pinjamanId);
+
+        DB::beginTransaction();
+        try {
+            if ($pinjaman->status !== 'disetujui') {
+                return redirect()
+                    ->route('pinjaman.show', $pinjaman->id)
+                    ->with('error', 'Pencairan hanya bisa dilakukan ketika status "Disetujui".');
+            }
+
+            $tglCairRaw = $request->input('tgl_cair');
+            try {
+                $tglCair = $tglCairRaw ? \Carbon\Carbon::parse($tglCairRaw) : \Carbon\Carbon::now();
+            } catch (\Throwable $e) {
+                $tglCair = \Carbon\Carbon::now();
+            }
+
+            $pinjaman->update([
+                'status' => 'dicairkan',
+                'tgl_cair' => $tglCair->toDateString(),
+            ]);
+
+            $sudahAda = $pinjaman->angsuran->count();
+            if ($sudahAda <= 0) {
+                $this->generateJadwalAngsuran($pinjaman, $tglCair);
+            }
+
+            DB::commit();
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('success', 'Pinjaman berhasil dicairkan. Jadwal angsuran sebanyak ' . (int) $pinjaman->tenor . ' bulan telah dibuat otomatis dan sudah muncul di modul Angsuran.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()
+                ->route('pinjaman.show', $pinjaman->id)
+                ->with('error', 'Gagal melakukan pencairan pinjaman: ' . $e->getMessage());
+        }
+    }
+
+    private function generateJadwalAngsuran(Pinjaman $pinjaman, \Carbon\Carbon $tglCair): void
+    {
+        $tenor = (int) max(1, (int) $pinjaman->tenor);
+        $angsuranPerBulan = (float) $pinjaman->angsuran_per_bulan;
+        if ($angsuranPerBulan <= 0) {
+            $jumlah = (float) $pinjaman->jumlah_pinjaman;
+            $bungaTahunan = (float) $pinjaman->bunga;
+            $bungaPerBulan = $bungaTahunan / 100 / 12;
+            if ($bungaPerBulan > 0 && $tenor > 0) {
+                $angsuranPerBulan = $jumlah * ($bungaPerBulan * pow(1 + $bungaPerBulan, $tenor)) / (pow(1 + $bungaPerBulan, $tenor) - 1);
+            } else {
+                $angsuranPerBulan = $tenor > 0 ? $jumlah / $tenor : $jumlah;
+            }
+        }
+        $angsuranPerBulan = round($angsuranPerBulan, 2);
+
+        $rows = [];
+        for ($i = 1; $i <= $tenor; $i++) {
+            $jatuhTempo = (clone $tglCair)->addMonthsNoOverflow($i);
+            $rows[] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'pinjaman_id' => $pinjaman->id,
+                'angsuran_ke' => $i,
+                'tanggal_jatuh_tempo' => $jatuhTempo->toDateString(),
+                'nominal' => $angsuranPerBulan,
+                'denda' => 0,
+                'total_bayar' => $angsuranPerBulan,
+                'status' => 'belum_lunas',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::table('angsuran')->upsert(
+            $rows,
+            ['pinjaman_id', 'angsuran_ke'],
+            ['tanggal_jatuh_tempo', 'nominal', 'total_bayar', 'updated_at']
+        );
     }
 
     public function destroy($id)

@@ -70,11 +70,10 @@
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="nomor_pinjaman" class="form-label">Nomor Pinjaman <span class="text-danger">*</span></label>
-                    <input type="text" name="nomor_pinjaman" id="nomor_pinjaman" maxlength="30" class="form-control @error('nomor_pinjaman') is-invalid @enderror" value="{{ old('nomor_pinjaman') }}" placeholder="Contoh: PINJ-2026-0001">
-                    @error('nomor_pinjaman')
-                    <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
-                    @enderror
+                    <label for="nomor_pinjaman_info" class="form-label">Nomor Pinjaman</label>
+                    <input type="text" id="nomor_pinjaman_info" class="form-control" value="Nomor akan dibuat otomatis sistem saat disimpan." disabled readonly>
+                    <input type="hidden" name="nomor_pinjaman" value="">
+                    <div class="form-text text-muted"><small>Format: [KodeCabang]-PIN-[yyyymm]-[urut4digit]. Contoh: KCP-PIN-202609-0001</small></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="jumlah_pinjaman" class="form-label">Jumlah Pinjaman <span class="text-danger">*</span></label>

@@ -123,4 +123,14 @@ class RoleController extends Controller
             return redirect()->back()->with('error', 'Role gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $role = Role::with(['permissions', 'users:id,nama,email,role_id,is_active'])->withCount('users')->findOrFail($id);
+            return view("modules.roles.show", compact('role'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail role: ' . $e->getMessage());
+        }
+    }
 }

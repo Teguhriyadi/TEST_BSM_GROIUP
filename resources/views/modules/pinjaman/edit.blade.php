@@ -53,8 +53,10 @@
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="nomor_pinjaman" class="form-label">Nomor Pinjaman <span class="text-danger">*</span></label>
-                    <input type="text" name="nomor_pinjaman" id="nomor_pinjaman" maxlength="30" class="form-control @error('nomor_pinjaman') is-invalid @enderror" value="{{ old('nomor_pinjaman', $pinjaman->nomor_pinjaman) }}" placeholder="Contoh: PINJ-2026-0001">
+                    <label for="nomor_pinjaman" class="form-label">Nomor Pinjaman</label>
+                    <input type="text" id="nomor_pinjaman" class="form-control" value="{{ $pinjaman->nomor_pinjaman }}" readonly disabled>
+                    <input type="hidden" name="nomor_pinjaman" value="{{ $pinjaman->nomor_pinjaman }}">
+                    <div class="form-text text-muted"><small>Nomor dibuat otomatis saat pengajuan dibuat dan tidak dapat diubah.</small></div>
                     @error('nomor_pinjaman')
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror

@@ -10,10 +10,11 @@ use Illuminate\Support\Str;
 class Role extends Model
 {
     use HasUuids;
-    
+
     public $incrementing = false;
     protected $keyType = "string";
 
+    public $primaryKey = 'id';
     protected $table = 'role';
 
     protected $fillable = [
@@ -38,6 +39,7 @@ class Role extends Model
 
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class, 'role_permission', 'role_id', 'permission_id');
+        return $this->belongsToMany(Permission::class, 'role_permission', 'role_id', 'permission_id')
+            ->using(RolePermission::class);
     }
 }

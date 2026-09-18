@@ -9,6 +9,7 @@ use App\Traits\WithModuleFilter;
 use App\Http\Requests\PembayaranAngsuran\PembayaranAngsuranCreateRequest;
 use App\Http\Requests\PembayaranAngsuran\PembayaranAngsuranUpdateRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PembayaranAngsuranController extends Controller
@@ -121,6 +122,30 @@ class PembayaranAngsuranController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $pembayaran = PembayaranAngsuran::with([
+                'angsuran',
+                'angsuran.pinjaman',
+                'angsuran.pinjaman.anggota:id,nama,no_anggota',
+                'angsuran.pinjaman.cabang:id,nama_cabang',
+                'dibayarOleh:id,nama',
+            ])->findOrFail($id);
+
+            $user = Auth::user();
+            if ($user && ! $user->hasRole('Administrator') && $user->cabang_id) {
+                if ((string) ($pembayaran->angsuran->pinjaman->cabang_id ?? '') !== (string) $user->cabang_id) {
+                    abort(403, 'Anda hanya bisa melihat pembayaran di cabang Anda sendiri.');
+                }
+            }
+
+            return view("modules.pembayaran-angsuran.show", compact('pembayaran'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail pembayaran: ' . $e->getMessage());
         }
     }
 }

@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -69,6 +70,14 @@ class AuthController extends Controller
                         'LOGIN',
                         'User login: ' . auth()->user()->nama . ' (' . auth()->user()->email . ')'
                     );
+                } catch (\Throwable $e) { report($e); }
+
+                try {
+                    $currentUser = auth()->user();
+                    if ($currentUser && Schema::hasColumn('users', 'last_login_at')) {
+                        $currentUser->last_login_at = now();
+                        $currentUser->save();
+                    }
                 } catch (\Throwable $e) { report($e); }
 
                 return redirect()
@@ -245,7 +254,6 @@ class AuthController extends Controller
             $user = User::create([
                 'id' => (string) Str::uuid(),
                 'cabang_id' => $anggota->cabang_id,
-                'name' => trim((string) $request->input('nama')),
                 'nama' => trim((string) $request->input('nama')),
                 'email' => Str::lower(trim((string) $request->input('email'))),
                 'password' => Hash::make($passwordBaru),

@@ -122,6 +122,50 @@ class AnggotaController extends Controller
         }
     }
 
+    public function show($id)
+    {
+        try {
+            $anggota = Anggota::with(['cabang:id,kode_cabang,nama_cabang', 'user', 'verifikator:id,nama'])->findOrFail($id);
+
+            $user = Auth::user();
+            if ($user && $user->hasRole('Anggota')) {
+                if ((string) $anggota->users_id !== (string) $user->id) {
+                    abort(403, 'Anda tidak memiliki izin melihat data anggota lain.');
+                }
+            }
+            if ($user && ($user->hasRole('Teller') || $user->hasRole('Kepala Cabang')) && $user->cabang_id) {
+                if ((string) $anggota->cabang_id !== (string) $user->cabang_id) {
+                    abort(403, 'Anda hanya bisa melihat anggota di cabang Anda sendiri.');
+                }
+            }
+
+            $daftarSimpanan = \App\Models\Simpanan::with('jenisSimpanan:id,nama_jenis')
+                ->where('anggota_id', $anggota->id)
+                ->orderBy('tanggal', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $totalSimpanan = (float) $daftarSimpanan->last()?->saldo ?? (float) $daftarSimpanan->sum('nominal');
+            $simpananPerJenis = $daftarSimpanan->groupBy(fn($s) => $s->jenisSimpanan?->nama_jenis ?? 'Lainnya')
+                ->map(fn($grp) => (float) $grp->last()?->saldo ?? 0);
+
+            $daftarPinjaman = \App\Models\Pinjaman::with(['jenisPinjaman:id,nama_jenis', 'angsuran'])
+                ->where('anggota_id', $anggota->id)
+                ->orderBy('tgl_pengajuan', 'desc')
+                ->get();
+
+            return view("modules.anggota.show", compact(
+                'anggota',
+                'daftarSimpanan',
+                'totalSimpanan',
+                'simpananPerJenis',
+                'daftarPinjaman',
+            ));
+        } catch (\Exception $e) {
+            return redirect()->route('anggota.index')->with('error', 'Gagal memuat detail anggota: ' . $e->getMessage());
+        }
+    }
+
     public function edit($id)
     {
         $anggota = Anggota::with('user')->findOrFail($id);

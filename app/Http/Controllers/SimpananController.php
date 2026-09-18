@@ -123,4 +123,34 @@ class SimpananController extends Controller
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());
         }
     }
+
+    public function show($id)
+    {
+        try {
+            $simpanan = Simpanan::with(['anggota', 'cabang', 'jenisSimpanan'])->findOrFail($id);
+
+            $user = Auth::user();
+            if ($user && $user->hasRole('Anggota')) {
+                if ((string) $simpanan->anggota_id !== (string) (Anggota::where('users_id', $user->id)->value('id') ?? '')) {
+                    abort(403, 'Anda tidak memiliki izin melihat data simpanan lain.');
+                }
+            }
+            if ($user && ($user->hasRole('Teller') || $user->hasRole('Kepala Cabang')) && $user->cabang_id) {
+                if ((string) $simpanan->cabang_id !== (string) $user->cabang_id) {
+                    abort(403, 'Anda hanya bisa melihat simpanan di cabang Anda sendiri.');
+                }
+            }
+
+            $riwayatSimpananAnggota = Simpanan::with('jenisSimpanan:id,nama_jenis')
+                ->where('anggota_id', $simpanan->anggota_id)
+                ->orderBy('tanggal', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->get();
+
+            return view("modules.simpanan.show", compact('simpanan', 'riwayatSimpananAnggota'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail simpanan: ' . $e->getMessage());
+        }
+    }
 }

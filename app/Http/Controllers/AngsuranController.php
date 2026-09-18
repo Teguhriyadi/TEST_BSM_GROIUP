@@ -8,6 +8,7 @@ use App\Traits\WithModuleFilter;
 use App\Http\Requests\Angsuran\AngsuranCreateRequest;
 use App\Http\Requests\Angsuran\AngsuranUpdateRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AngsuranController extends Controller
@@ -136,6 +137,38 @@ class AngsuranController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $angsuran = Angsuran::with([
+                'pinjaman',
+                'pinjaman.anggota:id,nama,no_anggota',
+                'pinjaman.cabang:id,nama_cabang',
+                'pinjaman.jenisPinjaman:id,nama_jenis',
+                'pembayaran.dibayarOleh:id,nama'
+            ])->withCount('pembayaran')->findOrFail($id);
+
+            $user = Auth::user();
+            if ($user && ! $user->hasRole('Administrator')) {
+                if ($user->hasRole('Anggota')) {
+                    $anggotaId = \App\Models\Anggota::where('users_id', $user->id)->value('id');
+                    if (! $anggotaId || (string) $angsuran->pinjaman->anggota_id !== (string) $anggotaId) {
+                        abort(403, 'Anda tidak memiliki izin melihat angsuran ini.');
+                    }
+                } elseif ($user->cabang_id) {
+                    if ((string) $angsuran->pinjaman->cabang_id !== (string) $user->cabang_id) {
+                        abort(403, 'Anda hanya bisa melihat angsuran di cabang Anda sendiri.');
+                    }
+                }
+            }
+
+            $totalDibayar = (float) $angsuran->pembayaran->sum('jumlah_bayar');
+            return view("modules.angsuran.show", compact('angsuran', 'totalDibayar'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memuat detail angsuran: ' . $e->getMessage());
         }
     }
 }

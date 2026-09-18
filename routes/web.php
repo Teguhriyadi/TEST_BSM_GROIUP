@@ -116,6 +116,18 @@ Route::middleware(['web', 'autentikasi'])->group(function () {
             ->name('pinjaman.verifikasi')
             ->middleware('permission:PINJAMAN_APPROVE');
 
+        Route::post('pinjaman/{pinjaman}/approve', [PinjamanController::class, 'approvePengajuan'])
+            ->name('pinjaman.approve')
+            ->middleware('permission:PINJAMAN_APPROVE');
+
+        Route::post('pinjaman/{pinjaman}/reject', [PinjamanController::class, 'tolakPengajuan'])
+            ->name('pinjaman.reject')
+            ->middleware('permission:PINJAMAN_APPROVE');
+
+        Route::post('pinjaman/{pinjaman}/cairkan', [PinjamanController::class, 'cairkanPinjaman'])
+            ->name('pinjaman.cairkan')
+            ->middleware('permission:PINJAMAN_CAIRKAN');
+
         Route::match(['get', 'post'], 'angsuran', [AngsuranController::class, 'index'])->name('angsuran.index')->middleware('permission:ANGSURAN_INDEX');
         Route::get('angsuran/create', [AngsuranController::class, 'create'])->name('angsuran.create')->middleware('permission:ANGSURAN_CREATE');
         Route::post('angsuran', [AngsuranController::class, 'store'])->name('angsuran.store')->middleware('permission:ANGSURAN_CREATE');
