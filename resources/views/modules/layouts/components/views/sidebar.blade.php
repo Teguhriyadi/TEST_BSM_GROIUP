@@ -325,6 +325,13 @@
                 aria-labelledby="headingAkuntansi" data-parent="#accordionSidebar">
                 <div class="py-2 collapse-inner rounded"
                     style="background-color: #ffffff; border: 1px solid rgba(0,0,0,0.08);">
+                    @if ($bisaCoa)
+                    <a class="collapse-item {{ request()->routeIs('coa.*') ? 'active' : '' }}"
+                        href="{{ route('coa.index') }}">
+                        <i class="bi bi-diagram-3 pe-2"></i>Perkiraan (COA)
+                    </a>
+                    @endif
+
                     @if ($bisaJurnal)
                     <a class="collapse-item {{ request()->routeIs('jurnal-umum.*') ? 'active' : '' }}"
                         href="{{ route('jurnal-umum.index') }}">
@@ -336,13 +343,6 @@
                     <a class="collapse-item {{ request()->routeIs('jurnal-harian.*') ? 'active' : '' }}"
                         href="{{ route('jurnal-harian.index') }}">
                         <i class="bi bi-calendar-event pe-2"></i>Jurnal Harian
-                    </a>
-                    @endif
-
-                    @if ($bisaCoa)
-                    <a class="collapse-item {{ request()->routeIs('coa.*') ? 'active' : '' }}"
-                        href="{{ route('coa.index') }}">
-                        <i class="bi bi-diagram-3 pe-2"></i>Perkiraan
                     </a>
                     @endif
 
