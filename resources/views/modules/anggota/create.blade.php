@@ -39,37 +39,7 @@
                         @enderror
                     </div>
                     <div class="mb-3">
-                        <label for="kategori_anggota" class="form-label">Kategori Anggota <span class="text-danger">*</span></label>
-                        <select class="form-select select2 @error('kategori_anggota') is-invalid @enderror" id="kategori_anggota" name="kategori_anggota">
-                            <option value="">-- Pilih Kategori Anggota --</option>
-                            @foreach($kategoriOptions as $opt)
-                            <option value="{{ $opt['value'] }}" {{ old('kategori_anggota', 'anggota_baru') == $opt['value'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
-                            @endforeach
-                        </select>
-                        <div class="form-text text-muted small">
-                            <b>Anggota Baru:</b> Anggota luar (bukan karyawan BSM Group). &nbsp;|&nbsp;
-                            <b>Karyawan:</b> Karyawan internal BSM Group.
-                        </div>
-                        @error('kategori_anggota')
-                        <div class="invalid-feedback">
-                            <small>{{ $message }}</small>
-                        </div>
-                        @enderror
-                    </div>
-                    <div class="mb-3">
-                        <label for="no_anggota" class="form-label">No Anggota</label>
-                        <input type="text" class="form-control bg-light @error('no_anggota') is-invalid @enderror" id="no_anggota" name="no_anggota" value="{{ old('no_anggota', $nextNoAnggota) }}" maxlength="30" readonly placeholder="Akan di-generate otomatis">
-                        <div class="form-text text-info small">
-                            <i class="bi bi-info-circle me-1"></i> Nomor Anggota di-generate otomatis oleh sistem (unik, tidak dapat diubah secara manual).
-                        </div>
-                        @error('no_anggota')
-                        <div class="invalid-feedback">
-                            <small>{{ $message }}</small>
-                        </div>
-                        @enderror
-                    </div>
-                    <div class="mb-3">
-                        <label for="nik" class="form-label">NIK</label>
+                        <label for="nik" class="form-label">NIK <span class="text-danger">*</span></label>
                         <input type="text" class="form-control @error('nik') is-invalid @enderror" id="nik" name="nik" value="{{ old('nik') }}" maxlength="16" placeholder="Masukkan 16 digit NIK sesuai KTP">
                         @error('nik')
                         <div class="invalid-feedback">
@@ -123,7 +93,7 @@
                         @enderror
                     </div>
                     <div class="mb-3">
-                        <label for="no_hp" class="form-label">No HP</label>
+                        <label for="no_hp" class="form-label">No HP<span class="text-danger">*</span></label>
                         <input type="text" class="form-control @error('no_hp') is-invalid @enderror" id="no_hp" name="no_hp" value="{{ old('no_hp') }}" maxlength="15" placeholder="Contoh: 081234567890">
                         @error('no_hp')
                         <div class="invalid-feedback">
@@ -132,7 +102,7 @@
                         @enderror
                     </div>
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email (untuk Akun Login Anggota)</label>
+                        <label for="email" class="form-label">Email (untuk Akun Login Anggota)<span class="text-danger">*</span></label>
                         <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}" maxlength="100" placeholder="Email anggota, jika diisi maka akan otomatis dibuatkan akun login">
                         <div class="form-text text-muted small">
                             Jika kolom ini diisi, sistem otomatis membuatkan akun login dengan password default: <b>password</b> (wajib diganti saat login pertama).

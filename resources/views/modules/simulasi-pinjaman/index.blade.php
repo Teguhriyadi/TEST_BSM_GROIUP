@@ -27,7 +27,6 @@
     <div class="row g-3">
         <div class="col-lg-7">
             <form action="{{ route('simulasi-pinjaman.index') }}" method="GET">
-                @csrf
                 <div class="card shadow mb-4 border-left-orange">
                     <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                         <h6 class="m-0 font-weight-bold text-orange">
@@ -113,9 +112,6 @@
                     <div class="card-footer bg-light d-flex justify-content-end gap-2">
                         <button type="button" id="btnReset" class="btn btn-sm btn-secondary">
                             <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-                        </button>
-                        <button type="submit" class="btn btn-sm btn-orange">
-                            <i class="bi bi-calculator me-1"></i> Hitung Simulasi
                         </button>
                     </div>
                 </div>

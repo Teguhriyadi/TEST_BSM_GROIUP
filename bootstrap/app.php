@@ -2,7 +2,9 @@
 
 use App\Http\Middleware\IsAutentikasiMiddleware;
 use App\Http\Middleware\PermissionMiddleware;
+use App\Http\Middleware\RedirectIfAnggota;
 use App\Http\Middleware\RedirectIfAuthenticatedMiddleware;
+use App\Http\Middleware\RedirectIfKaryawan;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,7 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             "guest" => RedirectIfAuthenticatedMiddleware::class,
             "administrator" => \App\Http\Middleware\IsAdministratorMiddleware::class,
             "permission" => PermissionMiddleware::class,
-            "anggota" => \App\Http\Middleware\RedirectIfAnggota::class,
+            "anggota" => RedirectIfAnggota::class,
+            "karyawan" => RedirectIfKaryawan::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

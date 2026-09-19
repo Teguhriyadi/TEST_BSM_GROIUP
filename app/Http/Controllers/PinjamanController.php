@@ -95,7 +95,7 @@ class PinjamanController extends Controller
 
     public function create()
     {
-        if (Auth::check() && Auth::user()->hasRole('Anggota')) {
+        if (Auth::check() && (Auth::user()->hasRole('Anggota') || Auth::user()->hasRole('Karyawan'))) {
             $anggotaAkun = Anggota::where('users_id', Auth::id())->first();
             if (! $anggotaAkun || $anggotaAkun->status !== 'aktif') {
                 return redirect(route('dashboard'))->with('warning', 'Anda tidak dapat mengajukan pinjaman saat ini. Hubungi teller koperasi.');

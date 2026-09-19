@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Requests\Anggota;
+namespace App\Http\Requests\Karyawan;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class AnggotaUpdateRequest extends FormRequest
+class KaryawanUpdateRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,7 +15,7 @@ class AnggotaUpdateRequest extends FormRequest
 
     public function rules(): array
     {
-        $anggotaId = $this->route('anggota')?->id ?? $this->route('anggota');
+        $anggotaId = $this->route('karyawan')?->id ?? $this->route('karyawan');
         $anggota = \App\Models\Anggota::find($anggotaId);
         $userIdIgnore = $anggota?->users_id;
 

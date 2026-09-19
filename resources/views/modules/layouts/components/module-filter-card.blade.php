@@ -38,8 +38,7 @@
 @endphp
 <div class="card shadow-sm mb-4 border-0">
     <div class="card-body py-3 px-4">
-        <form action="{{ $filterFormAction ?? '' }}" method="POST" class="row g-2 align-items-end">
-            @csrf
+        <form action="{{ $filterFormAction ?? '' }}" method="GET" class="row g-2 align-items-end">
             @if($tampilCabang)
                 @if(!empty($lockCabangToUser))
                     <div class="{{ $colCabang }} col-12">

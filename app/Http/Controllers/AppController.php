@@ -17,7 +17,7 @@ class AppController extends Controller
     public function dashboard(Request $request)
     {
         try {
-            $isAnggota = Auth::check() && Auth::user()->hasRole('Anggota');
+            $isAnggota = Auth::check() && (Auth::user()->hasRole('Anggota') || Auth::user()->hasRole('Karyawan'));
 
             $filterSessionKey = 'dashboard_filter_v1';
             try {

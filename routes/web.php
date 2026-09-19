@@ -33,6 +33,7 @@ use App\Http\Controllers\TutupBukuController;
 use App\Http\Controllers\CekNeracaSaldoController;
 use App\Http\Controllers\ShuController;
 use App\Http\Controllers\ArusKasController;
+use App\Http\Controllers\KaryawanController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -59,7 +60,7 @@ Route::middleware(['web', 'autentikasi'])->group(function () {
     Route::post('/pages/logout', [AuthController::class, 'logout'])->name('logout');
     Route::post('/modules/update-password-sendiri', [AuthController::class, 'updatePasswordSelf'])->name('password.updateSelf');
 
-    Route::middleware(['anggota'])->prefix('modules')->group(function () {
+    Route::middleware(['anggota', 'karyawan'])->prefix('modules')->group(function () {
         Route::match(['get', 'post'], '/dashboard', [AppController::class, 'dashboard'])
             ->name('dashboard')
             ->middleware('permission:DASHBOARD_VIEW');
@@ -79,6 +80,14 @@ Route::middleware(['web', 'autentikasi'])->group(function () {
         Route::get('anggota/{anggota}/edit', [AnggotaController::class, 'edit'])->name('anggota.edit')->middleware('permission:ANGGOTA_UPDATE');
         Route::match(['put', 'patch'], 'anggota/{anggota}', [AnggotaController::class, 'update'])->name('anggota.update')->middleware('permission:ANGGOTA_UPDATE');
         Route::delete('anggota/{anggota}', [AnggotaController::class, 'destroy'])->name('anggota.destroy')->middleware('permission:ANGGOTA_DELETE');
+
+        Route::match(['get', 'post'], 'karyawan', [KaryawanController::class, 'index'])->name('karyawan.index')->middleware('permission:KARYAWAN_INDEX');
+        Route::get('karyawan/create', [KaryawanController::class, 'create'])->name('karyawan.create')->middleware('permission:KARYAWAN_CREATE');
+        Route::post('karyawan', [KaryawanController::class, 'store'])->name('karyawan.store')->middleware('permission:KARYAWAN_CREATE');
+        Route::get('karyawan/{karyawan}', [KaryawanController::class, 'show'])->name('karyawan.show')->middleware('permission:KARYAWAN_VIEW');
+        Route::get('karyawan/{karyawan}/edit', [KaryawanController::class, 'edit'])->name('karyawan.edit')->middleware('permission:KARYAWAN_UPDATE');
+        Route::match(['put', 'patch'], 'karyawan/{karyawan}', [KaryawanController::class, 'update'])->name('karyawan.update')->middleware('permission:KARYAWAN_UPDATE');
+        Route::delete('karyawan/{karyawan}', [KaryawanController::class, 'destroy'])->name('karyawan.destroy')->middleware('permission:KARYAWAN_DELETE');
 
         Route::get('anggota-pendaftaran/menunggu', [AnggotaController::class, 'pendaftaranMenunggu'])
             ->name('anggota.pendaftaran.menunggu')

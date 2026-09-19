@@ -2,26 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\PendaftaranAnggotaDitolakMail;
-use App\Mail\PendaftaranAnggotaDisetujuiMail;
+use App\Http\Requests\Karyawan\KaryawanCreateRequest;
+use App\Http\Requests\Karyawan\KaryawanUpdateRequest;
 use App\Models\Anggota;
-use App\Models\AktivitasLog;
 use App\Models\Cabang;
 use App\Models\Role;
 use App\Models\User;
-use App\Http\Requests\Anggota\AnggotaCreateRequest;
-use App\Http\Requests\Anggota\AnggotaUpdateRequest;
-use App\Http\Requests\Anggota\AnggotaVerifikasiPendaftaranRequest;
 use App\Traits\WithModuleFilter;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
-class AnggotaController extends Controller
+class KaryawanController extends Controller
 {
     use WithModuleFilter;
 
@@ -49,22 +43,22 @@ class AnggotaController extends Controller
     public function index(Request $request)
     {
         try {
-            if (auth()->check() && auth()->user()->hasRole('Anggota')) {
-                $dataAnggota = Anggota::with(['cabang', 'user'])
+            if (auth()->check() && auth()->user()->hasRole('Karyawan')) {
+                $dataKaryawan = Anggota::with(['cabang', 'user'])
                     ->where('users_id', auth()->id())
-                    ->where('kategori_anggota', 'anggota_baru')
+                    ->where('kategori_anggota', 'karyawan')
                     ->get();
                 $cabangFilterList = collect();
                 $currentModuleFilter = ['cabang_id' => null, 'tanggal_awal' => null, 'tanggal_akhir' => null];
-                $isAnggotaFilter = true;
+                $isKaryawanFilter = true;
                 $moduleFilterSummary = null;
-                $filterFormAction = route('anggota.index');
+                $filterFormAction = route('karyawan.index');
                 $hideFilterBar = true;
-                return view("modules.anggota.index", compact(
-                    'dataAnggota',
+                return view("modules.karyawan.index", compact(
+                    'dataKaryawan',
                     'cabangFilterList',
                     'currentModuleFilter',
-                    'isAnggotaFilter',
+                    'isKaryawanFilter',
                     'moduleFilterSummary',
                     'filterFormAction',
                     'hideFilterBar',
@@ -82,21 +76,21 @@ class AnggotaController extends Controller
                 'force_scope_cabang_user' => false,
             ]);
 
-            $query = Anggota::where('kategori_anggota', 'anggota_baru')
+            $query = Anggota::where('kategori_anggota', 'karyawan')
                 ->with(['cabang', 'user']);
 
             $this->applyFilter($query, $resolved);
 
-            $dataAnggota = $query->orderBy('created_at', 'desc')->get();
+            $dataKaryawan = $query->orderBy('created_at', 'desc')->get();
             $filterFormAction = route('anggota.index');
             $filterView = $this->buildViewFilterVars($resolved);
 
-            return view("modules.anggota.index", array_merge(compact(
-                'dataAnggota',
+            return view("modules.karyawan.index", array_merge(compact(
+                'dataKaryawan',
                 'filterFormAction'
             ), $filterView));
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal memuat data anggota: ' . $e->getMessage());
+            return back()->with('error', 'Gagal memuat data karyawan: ' . $e->getMessage());
         }
     }
 
@@ -104,15 +98,14 @@ class AnggotaController extends Controller
     {
         $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
 
-        return view("modules.anggota.create", compact('cabang'));
+        return view("modules.karyawan.create", compact('cabang'));
     }
 
-    public function store(AnggotaCreateRequest $request)
+    public function store(KaryawanCreateRequest $request)
     {
         DB::beginTransaction();
         try {
-            $kategori = "anggota_baru";
-            $kodeRole = 'ROL-ANGGOTA';
+            $kodeRole = "ROL-KARYAWAN";
             $roleTarget = Role::where('kode_role', $kodeRole)->first();
 
             $userId = null;
@@ -136,23 +129,23 @@ class AnggotaController extends Controller
             }
 
             $payload = $request->validated();
-            $payload['no_anggota'] = $this->generateNoAnggota($kategori);
+            $payload['no_anggota'] = $this->generateNoAnggota("karyawan");
             $payload['users_id'] = $userId;
             unset($payload['email']);
-            $payload['kategori_anggota'] = $kategori;
+            $payload['kategori_anggota'] = 'karyawan';
 
             Anggota::create($payload);
 
             DB::commit();
 
-            $msg = 'Data berhasil disimpan. Nomor Anggota: <b>' . e($payload['no_anggota']) . '</b>';
+            $msg = 'Data berhasil disimpan. Nomor Karyawan: <b>' . e($payload['no_anggota']) . '</b>';
             if ($userId) {
-                $namaRole = 'Anggota';
+                $namaRole = "karyawan";
                 $msg .= '. Akun login otomatis dibuat (Role: <b>' . $namaRole . '</b>): Email <b>' . e($request->input('email')) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
             } else {
-                $msg .= '. Catatan: Email anggota tidak diisi, akun login tidak dibuat. Isi email anggota jika ingin anggota bisa login mandiri.';
+                $msg .= '. Catatan: Email karyawan tidak diisi, akun login tidak dibuat. Isi email karyawan jika ingin karyawan bisa login mandiri.';
             }
-            return redirect()->route('anggota.index')->with('success', $msg);
+            return redirect()->route('karyawan.index')->with('success', $msg);
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withInput()->with('error', 'Data gagal disimpan: ' . $e->getMessage());
@@ -162,22 +155,22 @@ class AnggotaController extends Controller
     public function show($id)
     {
         try {
-            $anggota = Anggota::with(['cabang:id,kode_cabang,nama_cabang', 'user', 'verifikator:id,nama'])->findOrFail($id);
+            $karyawan = Anggota::with(['cabang:id,kode_cabang,nama_cabang', 'user', 'verifikator:id,nama'])->findOrFail($id);
 
             $user = Auth::user();
-            if ($user && $user->hasRole('Anggota')) {
-                if ((string) $anggota->users_id !== (string) $user->id) {
-                    abort(403, 'Anda tidak memiliki izin melihat data anggota lain.');
+            if ($user && $user->hasRole('Karyawan')) {
+                if ((string) $karyawan->users_id !== (string) $user->id) {
+                    abort(403, 'Anda tidak memiliki izin melihat data karyawan lain.');
                 }
             }
             if ($user && ($user->hasRole('Teller') || $user->hasRole('Kepala Cabang')) && $user->cabang_id) {
-                if ((string) $anggota->cabang_id !== (string) $user->cabang_id) {
-                    abort(403, 'Anda hanya bisa melihat anggota di cabang Anda sendiri.');
+                if ((string) $karyawan->cabang_id !== (string) $user->cabang_id) {
+                    abort(403, 'Anda hanya bisa melihat karyawan di cabang Anda sendiri.');
                 }
             }
 
             $daftarSimpanan = \App\Models\Simpanan::with('jenisSimpanan:id,nama_jenis')
-                ->where('anggota_id', $anggota->id)
+                ->where('anggota_id', $karyawan->id)
                 ->orderBy('tanggal', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -187,12 +180,12 @@ class AnggotaController extends Controller
                 ->map(fn($grp) => (float) $grp->last()?->saldo ?? 0);
 
             $daftarPinjaman = \App\Models\Pinjaman::with(['jenisPinjaman:id,nama_jenis', 'angsuran'])
-                ->where('anggota_id', $anggota->id)
+                ->where('anggota_id', $karyawan->id)
                 ->orderBy('tgl_pengajuan', 'desc')
                 ->get();
 
-            return view("modules.anggota.show", compact(
-                'anggota',
+            return view("modules.karyawan.show", compact(
+                'karyawan',
                 'daftarSimpanan',
                 'totalSimpanan',
                 'simpananPerJenis',
@@ -205,27 +198,28 @@ class AnggotaController extends Controller
 
     public function edit($id)
     {
-        $anggota = Anggota::with('user')->findOrFail($id);
+        $karyawan = Anggota::with('user')->findOrFail($id);
         $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
 
-        return view("modules.anggota.edit", compact('anggota', 'cabang'));
+        return view("modules.karyawan.edit", compact('karyawan', 'cabang'));
     }
 
-    public function update(AnggotaUpdateRequest $request, $id)
+    public function update(KaryawanUpdateRequest $request, $id)
     {
         DB::beginTransaction();
         try {
-            $anggota = Anggota::findOrFail($id);
-            $kategoriLama = 'anggota_baru';
-            $kodeRoleBaru = 'ROL-ANGGOTA';
+            $karyawan = Anggota::findOrFail($id);
+            $kategoriBaru = $request->input('kategori_anggota', 'karyawan');
+            $kategoriLama = $karyawan->kategori_anggota ?? 'karyawan';
+            $kodeRoleBaru = "ROL-KARYAWAN";
             $roleTarget = Role::where('kode_role', $kodeRoleBaru)->first();
 
             $emailBaru = $request->filled('email') ? trim(mb_strtolower($request->input('email'))) : null;
-            $emailLama = $anggota->user?->email;
+            $emailLama = $karyawan->user?->email;
 
             $user = null;
-            if ($anggota->users_id) {
-                $user = User::find($anggota->users_id);
+            if ($karyawan->users_id) {
+                $user = User::find($karyawan->users_id);
             }
 
             $isStaff = $user && (
@@ -243,6 +237,9 @@ class AnggotaController extends Controller
                         'nomor_hp' => $request->filled('no_hp') ? $request->input('no_hp') : $user->nomor_hp,
                         'is_active' => ($request->input('status') === 'aktif') ? '1' : '0',
                     ];
+                    if (! $isStaff && $kategoriBaru !== $kategoriLama) {
+                        $updateUser['role_id'] = $roleTarget->id;
+                    }
                     $user->update($updateUser);
                 } else {
                     $user = User::create([
@@ -260,9 +257,9 @@ class AnggotaController extends Controller
                 }
             } elseif (! $emailBaru && $user && $roleTarget) {
                 if (! $isStaff) {
-                    if ($anggota->users_id === $user->id) {
-                        $anggota->users_id = null;
-                        $anggota->save();
+                    if ($karyawan->users_id === $user->id) {
+                        $karyawan->users_id = null;
+                        $karyawan->save();
                     }
                     $user->delete();
                     $user = null;
@@ -273,7 +270,7 @@ class AnggotaController extends Controller
                 }
             }
 
-            if (! $emailBaru && $user && ! $isStaff && $roleTarget) {
+            if (! $emailBaru && $user && ! $isStaff && $kategoriBaru !== $kategoriLama && $roleTarget) {
                 $user->update(['role_id' => $roleTarget->id]);
             }
 
@@ -283,15 +280,19 @@ class AnggotaController extends Controller
             }
             unset($payload['email']);
 
-            $anggota->update($payload);
+            $karyawan->update($payload);
 
             DB::commit();
 
             $msg = 'Data berhasil diubah';
-            if ($emailBaru && ! $emailLama && $user) {
-                $msg .= ' Akun login anggota baru dibuat: Email <b>' . e($emailBaru) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
+            if ($kategoriBaru !== $kategoriLama && $user && ! $isStaff) {
+                $namaRoleBaru = "Karyawan";
+                $msg .= '. Role akun login otomatis disesuaikan menjadi <b>' . $namaRoleBaru . '</b>.';
             }
-            return redirect()->route('anggota.index')->with('success', $msg);
+            if ($emailBaru && ! $emailLama && $user) {
+                $msg .= ' Akun login karyawan baru dibuat: Email <b>' . e($emailBaru) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
+            }
+            return redirect()->route('karyawan.index')->with('success', $msg);
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->withInput()->with('error', 'Data gagal diubah: ' . $e->getMessage());
@@ -302,19 +303,19 @@ class AnggotaController extends Controller
     {
         DB::beginTransaction();
         try {
-            $anggota = Anggota::findOrFail($id);
-            $userId = $anggota->users_id;
-            $anggota->delete();
+            $karyawan = Anggota::findOrFail($id);
+            $userId = $karyawan->users_id;
+            $karyawan->delete();
 
             if ($userId) {
                 $user = User::find($userId);
-                if ($user && $user->hasRole('Anggota')) {
+                if ($user && $user->hasRole('Karyawan')) {
                     $user->delete();
                 }
             }
 
             DB::commit();
-            return redirect()->route('anggota.index')->with('success', 'Data berhasil dihapus');
+            return redirect()->route('karyawan.index')->with('success', 'Data berhasil dihapus');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Data gagal dihapus: ' . $e->getMessage());

@@ -41,6 +41,27 @@ class PermissionMiddleware
             }
         }
 
+        if ($user->hasRole('Karyawan')) {
+            $current = $request->route()?->getName();
+            $routeMap = [
+                'dashboard' => ['ANGGOTA_DASHBOARD', 'DASHBOARD_VIEW'],
+                'anggota.index' => ['ANGGOTA_DASHBOARD'],
+                'simpanan.index' => ['ANGGOTA_SIMPANAN_VIEW'],
+                'pinjaman.index' => ['ANGGOTA_PINJAMAN_VIEW'],
+                'pinjaman.create' => ['ANGGOTA_PINJAMAN_CREATE'],
+                'pinjaman.store' => ['ANGGOTA_PINJAMAN_CREATE'],
+                'pinjaman.show' => ['ANGGOTA_PINJAMAN_VIEW', 'ANGGOTA_DOKUMEN_UPLOAD'],
+                'pinjaman.dokumen.upload' => ['ANGGOTA_DOKUMEN_UPLOAD']
+            ];
+            if ($current && isset($routeMap[$current])) {
+                foreach ($routeMap[$current] as $own) {
+                    if ($user->hasPermission($own)) {
+                        return $next($request);
+                    }
+                }
+            }
+        }
+
         foreach ($permissionKodes as $kode) {
             if ($user->hasPermission($kode)) {
                 return $next($request);

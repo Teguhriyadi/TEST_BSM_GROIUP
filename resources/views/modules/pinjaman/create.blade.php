@@ -2,7 +2,7 @@
 @push('title', 'Tambah Pinjaman')
 @push('page-modules')
 @php
-    $isAnggota = auth()->check() && auth()->user()->hasRole('Anggota');
+    $isAnggota = auth()->check() && (auth()->user()->hasRole('Anggota') || auth()->user()->hasRole('Karyawan'));
     $defAnggotaId = $isAnggota && isset($anggota) && $anggota->count() === 1 ? (string) $anggota->first()->id : old('anggota_id');
     $defCabangId = $isAnggota && isset($cabang) && $cabang->count() === 1 ? (string) $cabang->first()->id : old('cabang_id');
 @endphp
@@ -176,13 +176,15 @@
                     <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
                     @enderror
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label for="tgl_cair" class="form-label">Tgl Cair</label>
-                    <input type="date" name="tgl_cair" id="tgl_cair" class="form-control @error('tgl_cair') is-invalid @enderror" value="{{ old('tgl_cair') }}">
-                    @error('tgl_cair')
-                    <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
-                    @enderror
-                </div>
+                @if (!$isAnggota)
+                    <div class="col-md-4 mb-3">
+                        <label for="tgl_cair" class="form-label">Tgl Cair</label>
+                        <input type="date" name="tgl_cair" id="tgl_cair" class="form-control @error('tgl_cair') is-invalid @enderror" value="{{ old('tgl_cair') }}">
+                        @error('tgl_cair')
+                        <div class="invalid-feedback d-block"><small>{{ $message }}</small></div>
+                        @enderror
+                    </div>
+                @endif
             </div>
             <div class="mt-4">
                 <button type="submit" class="btn btn-orange">

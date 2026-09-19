@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Requests\Anggota;
+namespace App\Http\Requests\Karyawan;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class AnggotaUpdateRequest extends FormRequest
+class KaryawanCreateRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,10 +15,6 @@ class AnggotaUpdateRequest extends FormRequest
 
     public function rules(): array
     {
-        $anggotaId = $this->route('anggota')?->id ?? $this->route('anggota');
-        $anggota = \App\Models\Anggota::find($anggotaId);
-        $userIdIgnore = $anggota?->users_id;
-
         return [
             'cabang_id' => 'required|uuid|exists:cabang,id',
             'nik' => 'required|string|max:16',
@@ -27,7 +23,7 @@ class AnggotaUpdateRequest extends FormRequest
             'alamat' => 'nullable|string',
             'tgl_lahir' => 'nullable|date',
             'no_hp' => 'required|string|max:15',
-            'email' => 'required|email|max:100|unique:users,email' . ($userIdIgnore ? ',' . $userIdIgnore : ''),
+            'email' => 'required|email|max:100|unique:users,email',
             'status_anggota' => 'nullable|date',
             'status' => 'required|in:aktif,nonaktif',
         ];

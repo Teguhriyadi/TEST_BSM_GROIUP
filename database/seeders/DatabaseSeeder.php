@@ -45,6 +45,7 @@ class DatabaseSeeder extends Seeder
             $roleTeller = Role::find($roleTellerId);
             $roleKc = Role::find($roleKcId);
             $roleAnggota = Role::find($roleAnggotaId);
+            $roleKaryawan = Role::find($roleKaryawanId);
 
             $permissionList = [
                 ['kode' => 'DASHBOARD_VIEW',       'nama' => 'Lihat Dashboard',                'desk' => 'Akses halaman dashboard utama'],
@@ -326,6 +327,25 @@ class DatabaseSeeder extends Seeder
                 'SIMULASI_PINJAMAN_VIEW'
             ];
             $syncRole($roleAnggota, $anggotaKode);
+
+            $karyawanKode = [
+                'ANGGOTA_DASHBOARD',
+                'ANGGOTA_SIMPANAN_VIEW',
+                'ANGGOTA_PINJAMAN_VIEW',
+                'ANGGOTA_PINJAMAN_CREATE',
+                'ANGGOTA_DOKUMEN_UPLOAD',
+                'PINJAMAN_VIEW',
+                'PINJAMAN_CREATE',
+                'PINJAMAN_UPDATE',
+                'PINJAMAN_DELETE',
+                'SIMPANAN_VIEW',
+                'SIMPANAN_CREATE',
+                'SIMPANAN_UPDATE',
+                'SIMPANAN_DELETE',
+                'PINJAMAN_DOKUMEN_UPLOAD',
+                'SIMULASI_PINJAMAN_VIEW'
+            ];
+            $syncRole($roleKaryawan, $karyawanKode);
 
             $userAdminId = Str::uuid()->toString();
             $userTellerId = Str::uuid()->toString();

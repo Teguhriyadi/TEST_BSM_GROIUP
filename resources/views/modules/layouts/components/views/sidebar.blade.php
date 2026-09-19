@@ -22,6 +22,8 @@
                 $headerLabelRole = 'ANGGOTA';
             } elseif ($userLogin->hasRole('Administrator')) {
                 $headerLabelRole = 'ADMINISTRATOR';
+            } elseif ($userLogin->hasRole('Karyawan')) {
+                $headerLabelRole = 'KARYAWAN';
             } else {
                 $headerLabelRole = strtoupper($namaRoleUser);
             }
@@ -42,7 +44,7 @@
         <hr class="sidebar-divider my-1 mx-3" style="border-color: rgba(255,255,255,0.1);">
     @endif
 
-    @if (auth()->check() && auth()->user()->hasRole('Anggota'))
+    @if (auth()->check() && (auth()->user()->hasRole('Anggota') || auth()->user()->hasRole('Karyawan')))
 
         <div class="sidebar-heading mt-2 mb-2"
             style="color: rgba(255,255,255,0.82); font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;">
@@ -88,11 +90,26 @@
         </li>
         @endhasanypermission
 
+        @haspermission('SIMULASI_PINJAMAN_VIEW')
+        <div class="sidebar-heading mt-3 mb-2"
+            style="color: rgba(255,255,255,0.82); font-size: 0.8rem; font-weight: 700; letter-spacing: 1.2px;">
+            SIMULASI
+        </div>
+        
+        <li class="nav-item">
+            <a class="nav-link {{ request()->routeIs('simulasi-pinjaman.*') ? 'active' : '' }}"
+                href="{{ route('simulasi-pinjaman.index') }}">
+                <i class="bi bi-calculator"></i>
+                <span>Simulasi Pinjaman</span>
+            </a>
+        </li>
+        @endhaspermission
+
         <hr class="sidebar-divider my-2" style="border-color: rgba(255,255,255,0.12);">
 
         <div class="sidebar-heading mt-3 mb-2"
             style="color: rgba(255,255,255,0.82); font-size: 0.75rem; font-weight: 600; letter-spacing: 1px; line-height: 1.4; padding-left: 0.25rem; padding-right: 0.25rem;">
-            Anda login sebagai Anggota. Untuk perubahan data hubungi Teller Cabang.
+            Untuk perubahan data hubungi Teller Cabang.
         </div>
     @else
         <div class="sidebar-heading mt-3 mb-2"
@@ -132,6 +149,16 @@
                 href="{{ route('anggota.index') }}">
                 <i class="bi bi-people"></i>
                 <span>Anggota</span>
+            </a>
+        </li>
+        @endhaspermission
+
+        @haspermission('KARYAWAN_INDEX')
+        <li class="nav-item">
+            <a class="nav-link {{ request()->routeIs('karyawan.index') || request()->routeIs('karyawan.create') || request()->routeIs('karyawan.show') || request()->routeIs('karyawan.edit') ? 'active' : '' }}"
+                href="{{ route('karyawan.index') }}">
+                <i class="bi bi-people"></i>
+                <span>Karyawan</span>
             </a>
         </li>
         @endhaspermission

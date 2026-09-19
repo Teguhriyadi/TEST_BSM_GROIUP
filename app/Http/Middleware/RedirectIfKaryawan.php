@@ -5,11 +5,11 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 
-class RedirectIfAnggota
+class RedirectIfKaryawan
 {
     public function handle(Request $request, Closure $next)
     {
-        if (auth()->check() && auth()->user()->hasRole('Anggota') ) {
+        if (auth()->check() && auth()->user()->hasRole('Karyawan')) {
             $allowRoutes = [
                 'dashboard',
                 'anggota.index',
@@ -21,6 +21,7 @@ class RedirectIfAnggota
                 'pinjaman.show',
                 'pinjaman.dokumen.upload',
                 'password.updateSelf',
+                'simulasi-pinjaman.index',
                 'logout',
                 'lupa-password',
             ];
