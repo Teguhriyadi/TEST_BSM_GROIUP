@@ -13,7 +13,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-lg-12">
         <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold text-primary">Tambah Data Anggota</h6>
@@ -25,7 +25,7 @@
                 <form method="POST" action="{{ route('anggota.store') }}">
                     @csrf
                     <div class="mb-3">
-                        <label for="cabang_id" class="form-label">Cabang</label>
+                        <label for="cabang_id" class="form-label">Cabang <span class="text-danger">*</span></label>
                         <select class="form-select select2 @error('cabang_id') is-invalid @enderror" id="cabang_id" name="cabang_id">
                             <option value="">-- Pilih Cabang --</option>
                             @foreach($cabang as $c)
@@ -39,8 +39,29 @@
                         @enderror
                     </div>
                     <div class="mb-3">
-                        <label for="no_anggota" class="form-label">No Anggota <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('no_anggota') is-invalid @enderror" id="no_anggota" name="no_anggota" value="{{ old('no_anggota') }}" maxlength="30" placeholder="Contoh: ANGG-000001">
+                        <label for="kategori_anggota" class="form-label">Kategori Anggota <span class="text-danger">*</span></label>
+                        <select class="form-select select2 @error('kategori_anggota') is-invalid @enderror" id="kategori_anggota" name="kategori_anggota">
+                            <option value="">-- Pilih Kategori Anggota --</option>
+                            @foreach($kategoriOptions as $opt)
+                            <option value="{{ $opt['value'] }}" {{ old('kategori_anggota', 'anggota_baru') == $opt['value'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted small">
+                            <b>Anggota Baru:</b> Anggota luar (bukan karyawan BSM Group). &nbsp;|&nbsp;
+                            <b>Karyawan:</b> Karyawan internal BSM Group.
+                        </div>
+                        @error('kategori_anggota')
+                        <div class="invalid-feedback">
+                            <small>{{ $message }}</small>
+                        </div>
+                        @enderror
+                    </div>
+                    <div class="mb-3">
+                        <label for="no_anggota" class="form-label">No Anggota</label>
+                        <input type="text" class="form-control bg-light @error('no_anggota') is-invalid @enderror" id="no_anggota" name="no_anggota" value="{{ old('no_anggota', $nextNoAnggota) }}" maxlength="30" readonly placeholder="Akan di-generate otomatis">
+                        <div class="form-text text-info small">
+                            <i class="bi bi-info-circle me-1"></i> Nomor Anggota di-generate otomatis oleh sistem (unik, tidak dapat diubah secara manual).
+                        </div>
                         @error('no_anggota')
                         <div class="invalid-feedback">
                             <small>{{ $message }}</small>

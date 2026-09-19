@@ -73,6 +73,6 @@ class PembayaranAngsuran extends Model
         if (str_starts_with((string) $this->bukti_pembayaran, 'http://') || str_starts_with((string) $this->bukti_pembayaran, 'https://')) {
             return $this->bukti_pembayaran;
         }
-        return neo_public_url($this->bukti_pembayaran, 1440);
+        return \App\Helpers\ImageHelper::publicUrl($this->bukti_pembayaran);
     }
 }

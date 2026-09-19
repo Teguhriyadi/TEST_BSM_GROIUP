@@ -17,7 +17,8 @@ class AnggotaCreateRequest extends FormRequest
     {
         return [
             'cabang_id' => 'required|uuid|exists:cabang,id',
-            'no_anggota' => 'required|string|max:30|unique:anggota,no_anggota',
+            'kategori_anggota' => 'required|in:anggota_baru,karyawan',
+            'no_anggota' => 'nullable|string|max:30|unique:anggota,no_anggota',
             'nik' => 'nullable|string|max:16',
             'nama' => 'required|string|max:100',
             'jenis_kelamin' => 'required|in:L,P',
@@ -36,7 +37,8 @@ class AnggotaCreateRequest extends FormRequest
             'cabang_id.required' => 'Cabang anggota wajib dipilih.',
             'cabang_id.uuid' => 'Format Cabang tidak valid.',
             'cabang_id.exists' => 'Cabang yang dipilih tidak ditemukan di database.',
-            'no_anggota.required' => 'Nomor Anggota wajib diisi.',
+            'kategori_anggota.required' => 'Kategori Anggota wajib dipilih.',
+            'kategori_anggota.in' => 'Kategori Anggota harus Anggota Baru atau Karyawan.',
             'no_anggota.max' => 'Nomor Anggota maksimal 30 karakter.',
             'no_anggota.unique' => 'Nomor Anggota tersebut sudah terdaftar, gunakan nomor lain.',
             'nik.max' => 'NIK maksimal 16 digit.',

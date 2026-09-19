@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ImageHelper;
 use App\Models\PembayaranAngsuran;
 use App\Models\Angsuran;
 use App\Models\User;
@@ -11,7 +12,6 @@ use App\Http\Requests\PembayaranAngsuran\PembayaranAngsuranUpdateRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class PembayaranAngsuranController extends Controller
 {
@@ -85,12 +85,9 @@ class PembayaranAngsuranController extends Controller
                 $mime = strtolower((string) $file->getMimeType());
                 $isPdf = ($ext === 'pdf' || $mime === 'application/pdf');
                 if ($isPdf) {
-                    $storedPath = neo_store_file($file, $directory, 'private');
+                    $storedPath = ImageHelper::storeFile($file, $directory, 'public');
                 } else {
-                    if (! function_exists('compressImage')) {
-                        require_once app_path('Helpers/image_helper.php');
-                    }
-                    $storedPath = compressImage($file, $directory, 85, 2000, 'private');
+                    $storedPath = ImageHelper::compressAndStoreFile($file, $directory, 85, 2000, 'public');
                 }
                 if ($storedPath === null || trim((string) $storedPath) === '') {
                     throw new \RuntimeException('Gagal menyimpan bukti pembayaran.');
@@ -136,12 +133,9 @@ class PembayaranAngsuranController extends Controller
                 $mime = strtolower((string) $file->getMimeType());
                 $isPdf = ($ext === 'pdf' || $mime === 'application/pdf');
                 if ($isPdf) {
-                    $storedPath = neo_store_file($file, $directory, 'private');
+                    $storedPath = ImageHelper::storeFile($file, $directory, 'public');
                 } else {
-                    if (! function_exists('compressImage')) {
-                        require_once app_path('Helpers/image_helper.php');
-                    }
-                    $storedPath = compressImage($file, $directory, 85, 2000, 'private');
+                    $storedPath = ImageHelper::compressAndStoreFile($file, $directory, 85, 2000, 'public');
                 }
                 if ($storedPath === null || trim((string) $storedPath) === '') {
                     throw new \RuntimeException('Gagal menyimpan bukti pembayaran.');
@@ -159,8 +153,8 @@ class PembayaranAngsuranController extends Controller
 
             if ($oldPath !== null && trim((string) $oldPath) !== '') {
                 $pathBerubah = ! isset($valid['bukti_pembayaran']) || (string) ($valid['bukti_pembayaran'] ?? '') !== (string) $oldPath;
-                if ($pathBerubah) {
-                    neo_delete_file($oldPath);
+                if ($pathBerubah && ImageHelper::exists((string) $oldPath)) {
+                    ImageHelper::delete((string) $oldPath);
                 }
             }
 
@@ -179,7 +173,9 @@ class PembayaranAngsuranController extends Controller
             $pembayaranAngsuran = PembayaranAngsuran::findOrFail($id);
             $path = $pembayaranAngsuran->bukti_pembayaran;
             $pembayaranAngsuran->delete();
-            neo_delete_file($path);
+            if ($path !== null && trim((string) $path) !== '' && ImageHelper::exists((string) $path)) {
+                ImageHelper::delete((string) $path);
+            }
             DB::commit();
             return redirect()->route('pembayaran-angsuran.index')->with('success', 'Data berhasil dihapus');
         } catch (\Exception $e) {

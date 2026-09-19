@@ -17,7 +17,6 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        require_once app_path('Helpers/image_helper.php');
     }
 
     public function boot(): void

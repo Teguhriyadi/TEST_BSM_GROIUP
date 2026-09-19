@@ -20,6 +20,7 @@ class Anggota extends Model
         'cabang_id',
         'users_id',
         'no_anggota',
+        'kategori_anggota',
         'nik',
         'nama',
         'jenis_kelamin',

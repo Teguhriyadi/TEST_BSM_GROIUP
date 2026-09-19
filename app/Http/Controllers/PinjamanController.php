@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ImageHelper;
 use App\Http\Requests\Pinjaman\DokumenPinjamanUploadRequest;
 use App\Http\Requests\Pinjaman\DokumenPinjamanVerifikasiRequest;
 use App\Http\Requests\Pinjaman\PinjamanCreateRequest;
@@ -18,7 +19,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PinjamanController extends Controller
@@ -363,20 +363,20 @@ class PinjamanController extends Controller
 
             $ext = strtolower((string) $file->getClientOriginalExtension());
             $isPdf = $ext === 'pdf' || $mime === 'application/pdf';
-
             if ($isPdf) {
-                $relativePath = neo_store_file($file, $directory, 'private');
+                $relativePath = ImageHelper::storeFile($file, $directory, 'public');
                 if ($relativePath === null || trim((string) $relativePath) === '') {
                     throw new \RuntimeException('Gagal menyimpan file dokumen. Silakan coba kembali.');
                 }
             } else {
-                if (! function_exists('compressImage')) {
-                    require_once app_path('Helpers/image_helper.php');
-                }
-                $relativePath = compressImage($file, $directory, 80, 1600, 'private');
-                if ($relativePath === null || trim($relativePath) === '') {
+                $relativePath = ImageHelper::compressAndStoreFile($file, $directory, 80, 1600, 'public');
+                if ($relativePath === null || trim((string) $relativePath) === '') {
                     throw new \RuntimeException('Gagal menyimpan file dokumen. Silakan coba kembali.');
                 }
+            }
+
+            if (! empty($oldPath) && $oldPath !== $relativePath && ImageHelper::exists((string) $oldPath)) {
+                ImageHelper::delete((string) $oldPath);
             }
 
             $pinjamanDokumen->update([
@@ -390,15 +390,6 @@ class PinjamanController extends Controller
                 'verifikator_users_id' => null,
                 'tgl_verifikasi' => null,
             ]);
-
-            if (
-                $oldPath !== null
-                && trim((string) $oldPath) !== ''
-                && $oldPath !== $relativePath
-                && neo_file_exists($oldPath)
-            ) {
-                neo_delete_file($oldPath);
-            }
 
             if ($pinjaman->status !== 'diajukan') {
                 $pinjaman->update(['status' => 'diajukan']);
@@ -655,8 +646,11 @@ class PinjamanController extends Controller
         try {
             $pinjaman = Pinjaman::with('dokumen')->findOrFail($id);
             foreach ($pinjaman->dokumen as $dok) {
-                if (! empty($dok->file_path) && neo_file_exists($dok->file_path)) {
-                    neo_delete_file($dok->file_path);
+                if (empty($dok->file_path) || trim((string) $dok->file_path) === '') {
+                    continue;
+                }
+                if (ImageHelper::exists((string) $dok->file_path)) {
+                    ImageHelper::delete((string) $dok->file_path);
                 }
             }
             $pinjaman->delete();

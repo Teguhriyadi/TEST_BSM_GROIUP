@@ -2,12 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Anggota;
 use App\Models\Cabang;
 use App\Models\JenisPinjaman;
 use App\Models\JenisSimpanan;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -26,22 +28,18 @@ class DatabaseSeeder extends Seeder
                 ['id' => $cabangBandungId, 'kode_cabang' => 'CAB-002', 'nama_cabang' => 'Cabang Bandung', 'alamat' => 'Jl. Asia Afrika No. 10, Bandung', 'telepon' => '022-87654321', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
                 ['id' => $cabangSurabayaId, 'kode_cabang' => 'CAB-003', 'nama_cabang' => 'Cabang Surabaya', 'alamat' => 'Jl. Tunjungan No. 45, Surabaya', 'telepon' => '031-54321098', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
             ]);
-
+            
             $roleAdminId = Str::uuid()->toString();
             $roleTellerId = Str::uuid()->toString();
             $roleKcId = Str::uuid()->toString();
             $roleAnggotaId = Str::uuid()->toString();
-            $roleDirekturId = Str::uuid()->toString();
-            $roleKaryawanId = Str::uuid()->toString();
-
             Role::insert([
                 ['id' => $roleAdminId, 'kode_role' => 'ROL-ADM', 'nama_role' => 'Administrator', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
                 ['id' => $roleTellerId, 'kode_role' => 'ROL-TEL', 'nama_role' => 'Teller', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
                 ['id' => $roleKcId, 'kode_role' => 'ROL-KC', 'nama_role' => 'Kepala Cabang', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
                 ['id' => $roleAnggotaId, 'kode_role' => 'ROL-ANGGOTA', 'nama_role' => 'Anggota', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
-                ['id' => $roleDirekturId, 'kode_role' => 'ROL-DIREKTUR', 'nama_role' => 'Direktur', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
-                ['id' => $roleKaryawanId, 'kode_role' => 'ROL-KARYAWAN', 'nama_role' => 'Karyawan', 'is_active' => '1', 'created_at' => now(), 'updated_at' => now()],
             ]);
+            $roleAdmin = Role::find($roleAdminId);
             $roleTeller = Role::find($roleTellerId);
             $roleKc = Role::find($roleKcId);
             $roleAnggota = Role::find($roleAnggotaId);
@@ -160,7 +158,6 @@ class DatabaseSeeder extends Seeder
                 ['kode' => 'BUKU_BESAR_INDEX',       'nama' => 'Lihat Buku Besar',             'desk' => 'Menampilkan laporan buku besar per akun dengan saldo berjalan'],
                 ['kode' => 'NERACA_VIEW',            'nama' => 'Lihat Neraca',                 'desk' => 'Menampilkan laporan neraca per tanggal cutoff'],
             ];
-
             $permissionIdByKode = [];
             $batchPerm = [];
             foreach ($permissionList as $p) {
@@ -314,16 +311,6 @@ class DatabaseSeeder extends Seeder
                 'ANGGOTA_PINJAMAN_VIEW',
                 'ANGGOTA_PINJAMAN_CREATE',
                 'ANGGOTA_DOKUMEN_UPLOAD',
-                'PINJAMAN_VIEW',
-                'PINJAMAN_CREATE',
-                'PINJAMAN_UPDATE',
-                'PINJAMAN_DELETE',
-                'SIMPANAN_VIEW',
-                'SIMPANAN_CREATE',
-                'SIMPANAN_UPDATE',
-                'SIMPANAN_DELETE',
-                'PINJAMAN_DOKUMEN_UPLOAD',
-                'SIMULASI_PINJAMAN_VIEW'
             ];
             $syncRole($roleAnggota, $anggotaKode);
 
@@ -333,7 +320,6 @@ class DatabaseSeeder extends Seeder
             $userKcBandungId = Str::uuid()->toString();
             $userKcSurabayaId = Str::uuid()->toString();
             $userTeller2Id = Str::uuid()->toString();
-
             User::insert([
                 ['id' => $userAdminId, 'cabang_id' => $cabangPusatId, 'nama' => 'Administrator Sistem', 'email' => 'admin@koperasi.test', 'password' => Hash::make('password'), 'role_id' => $roleAdminId, 'nomor_hp' => '081234567890', 'is_active' => '1', 'force_change_password' => 0, 'password_changed_at' => now(), 'created_at' => now(), 'updated_at' => now()],
                 ['id' => $userAdmin2Id, 'cabang_id' => $cabangPusatId, 'nama' => 'Dwi Admin IT', 'email' => 'admin2@koperasi.test', 'password' => Hash::make('password'), 'role_id' => $roleAdminId, 'nomor_hp' => '081765432109', 'is_active' => '1', 'force_change_password' => 1, 'password_changed_at' => null, 'created_at' => now(), 'updated_at' => now()],
@@ -369,6 +355,7 @@ class DatabaseSeeder extends Seeder
             $jenisPinjamanPendidikan = JenisPinjaman::find($jenisPinjamanPendidikanId);
             $jenisPinjamanBpr = JenisPinjaman::find($jenisPinjamanBprId);
 
+            // Master Dokumen Persyaratan
             $masterKtpId = Str::uuid()->toString();
             $masterKkId = Str::uuid()->toString();
             $masterSlipId = Str::uuid()->toString();
@@ -383,6 +370,7 @@ class DatabaseSeeder extends Seeder
                 ['id' => $masterJaminanId, 'kode_dokumen' => 'DOK_JAMINAN', 'nama_dokumen' => 'Dokumen Jaminan', 'deskripsi' => 'Dokumen agunan/jaminan sesuai jenis pinjaman (SHM, Sertifikat Kendaraan, dll)', 'format_diperbolehkan' => 'jpg,jpeg,png,pdf', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
             ]);
 
+            // Sync Persyaratan per Jenis Pinjaman
             $urutan = 1;
             $jenisPinjamanMikro->dokumenPersyaratan()->sync([
                 $masterKtpId => ['id' => Str::uuid()->toString(), 'is_wajib' => true, 'urutan' => $urutan++],
@@ -417,6 +405,11 @@ class DatabaseSeeder extends Seeder
                 $masterJaminanId => ['id' => Str::uuid()->toString(), 'is_wajib' => true, 'urutan' => $urutan++],
             ]);
 
+            // ============================================================
+            // INCREMENTAL SAFE UPSERT: Permission + Role + COA + Mapping
+            // (Berjalan aman meskipun seeder dijalankan berulang kali)
+            // ============================================================
+
             $newPermissionList = [
                 ['kode' => 'COA_INDEX', 'nama' => 'Lihat COA / Daftar Akun', 'desk' => 'Menampilkan daftar Chart of Accounts'],
                 ['kode' => 'COA_CREATE', 'nama' => 'Tambah COA', 'desk' => 'Menambah akun baru di COA'],
@@ -434,7 +427,7 @@ class DatabaseSeeder extends Seeder
                 ['kode' => 'JURNAL_DELETE', 'nama' => 'Hapus Jurnal Umum', 'desk' => 'Menghapus jurnal draf / dibatalkan'],
                 ['kode' => 'JURNAL_POSTING', 'nama' => 'Posting Jurnal', 'desk' => 'Memposting jurnal draf menjadi dicatat di buku besar'],
                 ['kode' => 'JURNAL_HARIAN_VIEW', 'nama' => 'Lihat Jurnal Harian', 'desk' => 'Laporan jurnal harian rekap per tanggal tanpa aksi CRUD'],
-                ['kode' => 'BUKU_BESAR_INDEX', 'nama' => 'Lihat Buku Besar', 'desk' => 'Laporan buku besar per akun dengan saldo berjalan'],
+                ['kode' => 'BUKU_BESAR_INDEX', 'nama' => 'Lihat Buku Besar', 'desk' => 'Menampilkan laporan buku besar per akun dengan saldo berjalan'],
                 ['kode' => 'REKAP_KAS_VIEW', 'nama' => 'Lihat Rekap Kas & Non Kas Harian', 'desk' => 'Laporan rekapitulasi penerimaan kas vs non kas per hari'],
                 ['kode' => 'BUKU_KAS_VIEW', 'nama' => 'Lihat Buku Kas Harian', 'desk' => 'Laporan mutasi saldo kas & bank harian dengan saldo berjalan'],
                 ['kode' => 'LABA_RUGI_PERIODE_VIEW', 'nama' => 'Lihat Laba Rugi Periode', 'desk' => 'Laporan laba rugi per periode tanggal mulai sampai akhir'],
@@ -506,6 +499,7 @@ class DatabaseSeeder extends Seeder
                 $ids = collect($kcPerms)->map(fn ($k) => $permIdByKode[$k] ?? null)->filter()->values()->all();
                 $kcRole->permissions()->syncWithoutDetaching($ids);
             }
+            // Default Master Dokumen (global, idempotent tanpa duplikat)
             $masterDefault = [
                 ['kode' => 'DOC-KTP',      'nama' => 'Kartu Tanda Penduduk (KTP)', 'desk' => 'KTP suami / istri sesuai KUA', 'format' => 'jpg,jpeg,png,pdf'],
                 ['kode' => 'DOC-KK',       'nama' => 'Kartu Keluarga (KK)',        'desk' => 'Kartu keluarga terbaru',      'format' => 'jpg,jpeg,png,pdf'],
@@ -536,14 +530,260 @@ class DatabaseSeeder extends Seeder
                 }
             }
 
-            // ------------------------------------------------------------------
-            // CATATAN: Data dummy AKUNTANSI (COA 130+ akun + Mapping) TIDAK
-            // di-generate oleh seeder ini. Silakan setup manual melalui UI Admin:
-            //   1. Module Akuntansi > COA (buat struktur akun sesuai kebijakan)
-            //   2. Module Akuntansi > COA Mapping (pasangkan debet/kredit per transaksi)
-            //   3. Module Akuntansi > COA Saldo Awal (isi nominal awal periode)
-            // Setelah 3 langkah di atas, semua otomasi jurnal akan berjalan.
-            // ------------------------------------------------------------------
+            // -------- COA Default (global, cabang_id = null) --- 130+ akun sesuai Standar Akuntansi Koperasi --------
+            $coaDefault = [
+                // ========== 1. AKTIVA ==========
+                // ===== 1.1 AKTIVA LANCAR =====
+                ['kode' => '110.00.00', 'nama' => 'AKTIVA LANCAR',                   'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => null],
+                ['kode' => '111.00.00', 'nama' => 'Setara Kas',                       'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '111.01.00', 'nama' => 'Kas',                              'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '111.00.00'],
+                ['kode' => '111.02.00', 'nama' => 'Kas Mobile',                       'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '111.00.00'],
+                ['kode' => '112.00.00', 'nama' => 'Bank',                             'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '112.01.00', 'nama' => 'Bank Induk',                       'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '112.00.00'],
+                ['kode' => '112.01.01', 'nama' => 'Bank BCA',                         'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '112.01.00'],
+                ['kode' => '112.02.01', 'nama' => 'Bank PERMATA',                     'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '112.01.00'],
+                ['kode' => '112.03.01', 'nama' => 'Bank MANDIRI',                     'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '112.01.00'],
+                ['kode' => '113.00.00', 'nama' => 'Deposito',                         'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '113.01.00', 'nama' => 'Deposito BCA',                     'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '113.00.00'],
+                ['kode' => '114.00.00', 'nama' => 'Piutang Pinjaman Anggota',         'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '114.01.00', 'nama' => 'Piutang Angsuta',                  'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '114.00.00'],
+                ['kode' => '114.02.00', 'nama' => 'Pinjaman Kendaraan',               'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '114.00.00'],
+                ['kode' => '114.03.00', 'nama' => 'Pinjaman Usaha',                   'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '114.00.00'],
+                ['kode' => '114.04.00', 'nama' => 'Pinjaman Konsumtif',               'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '114.00.00'],
+                ['kode' => '114.05.00', 'nama' => 'Pinjaman Multiguna',               'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '114.00.00'],
+                ['kode' => '114.06.00', 'nama' => 'Sisa Dana Talangan',               'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '114.00.00'],
+                ['kode' => '115.00.00', 'nama' => 'Cadangan Kerugian Piutang',        'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '110.00.00'],
+                ['kode' => '115.01.00', 'nama' => 'Cadangan Piutang Bersih',          'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '115.00.00'],
+                ['kode' => '115.02.00', 'nama' => 'Akumulasi Cadangan Piutang',       'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '115.00.00'],
+                ['kode' => '116.00.00', 'nama' => 'Persediaan',                       'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '116.01.00', 'nama' => 'Persediaan Manul',                 'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '116.00.00'],
+                ['kode' => '116.02.00', 'nama' => 'Persediaan Barang Cetakan',        'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '116.00.00'],
+                ['kode' => '117.00.00', 'nama' => 'Perlengkapan',                     'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '117.01.00', 'nama' => 'Perlengkapan Kerja',               'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '117.00.00'],
+                ['kode' => '118.00.00', 'nama' => 'Kas Antar Cabang & Digital',       'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '118.01.00', 'nama' => 'Kas Tunai Kantor Cabang',          'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '118.00.00'],
+                ['kode' => '118.02.00', 'nama' => 'Transfer Online Antar Cabang',     'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '118.00.00'],
+                ['kode' => '118.03.00', 'nama' => 'Saluran Produk Digital',           'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '118.00.00'],
+                ['kode' => '118.04.00', 'nama' => 'Kerjasama Bank Koresponden',       'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '118.00.00'],
+                ['kode' => '118.05.00', 'nama' => 'Kerjasama Antar Koperasi',         'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '118.00.00'],
+                ['kode' => '119.00.00', 'nama' => 'Aktiva Lancar Lainnya',            'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '110.00.00'],
+                ['kode' => '119.01.00', 'nama' => 'Ruko / Gedung Investasi',          'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '119.00.00'],
+                ['kode' => '119.02.00', 'nama' => 'Aktiva Lancar Lain-lain',          'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '119.00.00'],
+
+                // ===== 1.2 AKTIVA TETAP =====
+                ['kode' => '120.00.00', 'nama' => 'AKTIVA TETAP',                     'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => null],
+                ['kode' => '120.01.00', 'nama' => 'Tanah',                            'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '120.00.00'],
+                ['kode' => '120.02.00', 'nama' => 'Bangunan',                         'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '120.00.00'],
+                ['kode' => '120.03.00', 'nama' => 'Kendaraan',                        'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '120.00.00'],
+                ['kode' => '120.04.00', 'nama' => 'Inventaris Kantor',                'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '120.00.00'],
+                ['kode' => '120.05.00', 'nama' => 'Aktiva Tetap Lainnya',             'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '120.00.00'],
+                ['kode' => '120.06.00', 'nama' => 'Peralatan Kantor',                 'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'debet',  'parent' => '120.00.00'],
+                ['kode' => '121.00.00', 'nama' => 'Akumulasi Penyusutan Aktiva',      'level' => 1, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '120.00.00'],
+                ['kode' => '121.01.00', 'nama' => 'Akum. Penyusutan Bangunan',        'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '121.00.00'],
+                ['kode' => '121.02.00', 'nama' => 'Akum. Penyusutan Kendaraan',       'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '121.00.00'],
+                ['kode' => '121.03.00', 'nama' => 'Akum. Penyusutan Inventaris',      'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '121.00.00'],
+                ['kode' => '121.04.00', 'nama' => 'Akum. Peny. Aktiva Lainnya',       'level' => 2, 'kel' => 'aset',       'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '121.00.00'],
+
+                // ========== 2. KEWAJIBAN ==========
+                ['kode' => '200.00.00', 'nama' => 'KEWAJIBAN',                        'level' => 1, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => null],
+                ['kode' => '210.00.00', 'nama' => 'Simpanan Anggota',                 'level' => 1, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '200.00.00'],
+                ['kode' => '210.01.00', 'nama' => 'Simpanan Angsuta',                 'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.02.00', 'nama' => 'Simpanan Sukarela',                'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.03.00', 'nama' => 'Simpanan Hari Raya',               'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.04.00', 'nama' => 'Simpanan Hari Tua',                'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.05.00', 'nama' => 'Simpanan Berencana',               'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.06.01', 'nama' => 'Simpanan Pendidikan 1 Tahun',      'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.07.01', 'nama' => 'Simpanan Pendidikan 2 Tahun',      'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.08.01', 'nama' => 'Simpanan Pendidikan 3 Tahun',      'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.09.01', 'nama' => 'Simpanan Qurban 1 Tahun',          'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.10.01', 'nama' => 'Simpanan Qurban 2 Tahun',          'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.11.01', 'nama' => 'Simpanan Qurban 3 Tahun',          'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.12.01', 'nama' => 'Simpanan Umroh 1 Tahun',           'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.13.01', 'nama' => 'Simpanan Umroh 2 Tahun',           'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.14.01', 'nama' => 'Simpanan Umroh 3 Tahun',           'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.15.01', 'nama' => 'Simpanan Renovasi Rumah',          'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.16.06', 'nama' => 'Simpanan Deposito 6 Bulan',        'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.17.12', 'nama' => 'Simpanan Deposito 12 Bulan',       'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.18.18', 'nama' => 'Simpanan Deposito 18 Bulan',       'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.19.24', 'nama' => 'Simpanan Deposito 24 Bulan',       'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.20.00', 'nama' => 'Simpanan Goro',                    'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '210.21.00', 'nama' => 'Simpanan Wisata',                  'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '210.00.00'],
+                ['kode' => '220.00.00', 'nama' => 'Hutang Jangka Panjang',            'level' => 1, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '200.00.00'],
+                ['kode' => '220.01.00', 'nama' => 'Panjar Angsuta Koperasi',          'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '220.00.00'],
+                ['kode' => '220.02.00', 'nama' => 'Hutang Pihak Ketiga',              'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '220.00.00'],
+                ['kode' => '230.00.00', 'nama' => 'Dana dan Kewajiban Lainnya',       'level' => 1, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '200.00.00'],
+                ['kode' => '230.01.00', 'nama' => 'Dana Darurat',                     'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '230.00.00'],
+                ['kode' => '230.02.01', 'nama' => 'Dana Pendidikan',                  'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '230.00.00'],
+                ['kode' => '230.03.01', 'nama' => 'Dana Solidaritas',                 'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '230.00.00'],
+                ['kode' => '230.04.00', 'nama' => 'Kewajiban Kemenkumham',            'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '230.00.00'],
+                ['kode' => '230.05.01', 'nama' => 'Beban Dibayar Dimuka',             'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '230.00.00'],
+                ['kode' => '240.00.00', 'nama' => 'Hutang Lain-lain',                 'level' => 1, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '200.00.00'],
+                ['kode' => '240.01.01', 'nama' => 'Hutang YM Chinesse',               'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '240.00.00'],
+                ['kode' => '240.02.01', 'nama' => 'PPH 21 Karyawan',                  'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '240.00.00'],
+                ['kode' => '240.03.01', 'nama' => 'Cadangan Biaya Notaris',           'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '240.00.00'],
+                ['kode' => '240.04.00', 'nama' => 'Modal Penyertaan',                 'level' => 2, 'kel' => 'kewajiban',  'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '240.00.00'],
+
+                // ========== 3. MODAL (EKUITAS) ==========
+                ['kode' => '300.00.00', 'nama' => 'MODAL',                            'level' => 1, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => null],
+                ['kode' => '310.00.00', 'nama' => 'Simpanan Modal Anggota',           'level' => 1, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '300.00.00'],
+                ['kode' => '310.01.00', 'nama' => 'Simpanan Modal Angsuta',           'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '310.00.00'],
+                ['kode' => '310.02.00', 'nama' => 'Simpanan Pokok',                   'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '310.00.00'],
+                ['kode' => '310.03.00', 'nama' => 'Simpanan Wajib',                   'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '310.00.00'],
+                ['kode' => '320.00.00', 'nama' => 'Dana Modal Cadangan',              'level' => 1, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '300.00.00'],
+                ['kode' => '320.01.00', 'nama' => 'Dana Cadangan',                    'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '320.00.00'],
+                ['kode' => '320.02.00', 'nama' => 'Dana Laba Ditahan',                'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '320.00.00'],
+                ['kode' => '320.03.00', 'nama' => 'Dana Cadangan Bersih',             'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '320.00.00'],
+                ['kode' => '330.00.00', 'nama' => 'Sisa Hasil Usaha (SHU)',            'level' => 1, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '300.00.00'],
+                ['kode' => '330.01.01', 'nama' => 'SHU Tahun Berjalan',               'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '330.00.00'],
+                ['kode' => '330.02.01', 'nama' => 'SHU Tahun Lalu',                   'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '330.00.00'],
+                ['kode' => '330.03.01', 'nama' => 'SHU Kumulatif',                    'level' => 2, 'kel' => 'ekuitas',    'pos' => 'neraca',    'sn' => 'kredit', 'parent' => '330.00.00'],
+
+                // ========== 4. PENDAPATAN ==========
+                ['kode' => '400.00.00', 'nama' => 'PENDAPATAN',                       'level' => 1, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => null],
+                ['kode' => '410.00.00', 'nama' => 'Pendapatan Bunga & Jasa',          'level' => 1, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '400.00.00'],
+                ['kode' => '410.01.00', 'nama' => 'Pendapatan Bunga Pinjaman',        'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.00.00'],
+                ['kode' => '410.01.02', 'nama' => 'Bunga Pinjaman Kendaraan',         'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.01.00'],
+                ['kode' => '410.01.03', 'nama' => 'Bunga Pinjaman Usaha',             'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.01.00'],
+                ['kode' => '410.01.04', 'nama' => 'Bunga Pinjaman Konsumtif',         'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.01.00'],
+                ['kode' => '410.01.05', 'nama' => 'Bunga Pinjaman Multiguna',         'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.01.00'],
+                ['kode' => '410.01.06', 'nama' => 'Bunga Siaga / Dana Talangan',      'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.01.00'],
+                ['kode' => '410.97.00', 'nama' => 'Provisi Pinjaman',                 'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.00.00'],
+                ['kode' => '410.98.00', 'nama' => 'Administrasi & Layanan',            'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.00.00'],
+                ['kode' => '410.99.00', 'nama' => 'Denda & Keterlambatan',            'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '410.00.00'],
+                ['kode' => '420.00.00', 'nama' => 'Pendapatan Bunga Bank',            'level' => 1, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '400.00.00'],
+                ['kode' => '420.01.01', 'nama' => 'Bunga Bank BCA',                   'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '420.00.00'],
+                ['kode' => '420.02.01', 'nama' => 'Bunga Bank PERMATA',               'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '420.00.00'],
+                ['kode' => '420.03.01', 'nama' => 'Bunga Bank MANDIRI',               'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '420.00.00'],
+                ['kode' => '430.00.00', 'nama' => 'Pendapatan Non Operasional',       'level' => 1, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '400.00.00'],
+                ['kode' => '430.01.01', 'nama' => 'Buku Simpanan / Denda Anggota',    'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '430.00.00'],
+                ['kode' => '430.02.01', 'nama' => 'Penjualan Aktiva Tetap',           'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '430.00.00'],
+                ['kode' => '430.99.00', 'nama' => 'Pendapatan Lainnya',               'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '430.00.00'],
+                ['kode' => '440.00.00', 'nama' => 'Pendapatan Layanan Digital',       'level' => 1, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '400.00.00'],
+                ['kode' => '440.01.00', 'nama' => 'Platform Layanan Digital',         'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '440.00.00'],
+                ['kode' => '440.02.00', 'nama' => 'Pendapatan Produk Digital',        'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '440.00.00'],
+                ['kode' => '440.03.00', 'nama' => 'Jasa Berbagi Bank',                'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '440.00.00'],
+                ['kode' => '440.04.00', 'nama' => 'Pendapatan Antar Koperasi',        'level' => 2, 'kel' => 'pendapatan', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => '440.00.00'],
+
+                // ========== 5. BEBAN ==========
+                ['kode' => '500.00.00', 'nama' => 'BEBAN',                            'level' => 1, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => null],
+                ['kode' => '510.00.00', 'nama' => 'Beban Bunga Simpanan',             'level' => 1, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '500.00.00'],
+                ['kode' => '511.01.00', 'nama' => 'Bunga Simpanan Sukarela',          'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.02.00', 'nama' => 'Bunga Simpanan Hari Raya',         'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.03.00', 'nama' => 'Bunga Simpanan Hari Tua',          'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.04.01', 'nama' => 'Bunga Simpanan Pendidikan 1',      'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.05.01', 'nama' => 'Bunga Simpanan Pendidikan 2',      'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.06.01', 'nama' => 'Bunga Simpanan Pendidikan 3',      'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.07.01', 'nama' => 'Bunga Simpanan Qurban 1',          'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.08.01', 'nama' => 'Bunga Simpanan Qurban 2',          'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.09.01', 'nama' => 'Bunga Simpanan Qurban 3',          'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.10.01', 'nama' => 'Bunga Simpanan Umroh 1',           'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.11.01', 'nama' => 'Bunga Simpanan Umroh 2',           'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.12.01', 'nama' => 'Bunga Simpanan Umroh 3',           'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.13.00', 'nama' => 'Bunga Simpanan Aksi Sosial',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.14.00', 'nama' => 'Bunga Simpanan Berencana',         'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.16.06', 'nama' => 'Bunga Simpanan Deposito 6',        'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.17.12', 'nama' => 'Bunga Simpanan Deposito 12',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.18.18', 'nama' => 'Bunga Simpanan Deposito 18',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.19.24', 'nama' => 'Bunga Simpanan Deposito 24',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.20.00', 'nama' => 'Bunga Simpanan Goro',              'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '511.21.00', 'nama' => 'Bunga Simpanan Wisata',            'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '510.00.00'],
+                ['kode' => '512.00.00', 'nama' => 'Beban Operasional',                'level' => 1, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '500.00.00'],
+                ['kode' => '512.01.00', 'nama' => 'Gaji Karyawan',                    'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.02.00', 'nama' => 'Tunjangan Karyawan',               'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.03.00', 'nama' => 'Rekening Listrik / Telepon',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.04.00', 'nama' => 'Pembelian Alat Tulis Kantor',      'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.05.00', 'nama' => 'Pemeliharaan Kantor',              'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.06.00', 'nama' => 'Transportasi & Transaksi',         'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.07.00', 'nama' => 'Internet & Jaringan',              'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.08.00', 'nama' => 'Sewa Gedung & Ruang',              'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.09.00', 'nama' => 'Beban Cadangan Kerugian',          'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.98.00', 'nama' => 'Beban Administrasi Lainnya',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '512.99.00', 'nama' => 'BPJS & Ketenagakerjaan',           'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '512.00.00'],
+                ['kode' => '513.00.00', 'nama' => 'Beban Penyusutan',                 'level' => 1, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '500.00.00'],
+                ['kode' => '513.01.00', 'nama' => 'Beban Penyusutan Bangunan',        'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '513.00.00'],
+                ['kode' => '513.02.00', 'nama' => 'Beban Penyusutan Kendaraan',       'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '513.00.00'],
+                ['kode' => '513.03.00', 'nama' => 'Beban Penyusutan Inventaris',      'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '513.00.00'],
+                ['kode' => '513.04.00', 'nama' => 'Beban Penyusutan Lainnya',         'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '513.00.00'],
+                ['kode' => '520.00.00', 'nama' => 'PAJAK',                            'level' => 1, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '500.00.00'],
+                ['kode' => '520.01.01', 'nama' => 'Pajak Penghasilan 21',             'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '520.00.00'],
+                ['kode' => '520.02.01', 'nama' => 'Pajak Penghasilan 23',             'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '520.00.00'],
+                ['kode' => '520.03.01', 'nama' => 'Pajak Penghasilan 25',             'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '520.00.00'],
+                ['kode' => '520.99.00', 'nama' => 'Pajak Lainnya',                    'level' => 2, 'kel' => 'beban',      'pos' => 'laba_rugi', 'sn' => 'debet',  'parent' => '520.00.00'],
+
+                ['kode' => '900.00.00', 'nama' => 'IKHTISAR LABA RUGI',               'level' => 1, 'kel' => 'ikhtisar_laba_rugi', 'pos' => 'laba_rugi', 'sn' => 'kredit', 'parent' => null],
+            ];
+            $parentIdByKode = [];
+            foreach ($coaDefault as $row) {
+                $payload = [
+                    'parent_id' => $row['parent'] ? ($parentIdByKode[$row['parent']] ?? null) : null,
+                    'cabang_id' => null,
+                    'kode_akun' => $row['kode'],
+                    'nama_akun' => $row['nama'],
+                    'level' => $row['level'],
+                    'kelompok' => $row['kel'],
+                    'posisi_laporan' => $row['pos'],
+                    'saldo_normal' => $row['sn'],
+                    'is_active' => '1',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                $existing = DB::table('coa')
+                    ->where('cabang_id', null)
+                    ->where('kode_akun', $row['kode'])
+                    ->first();
+                if ($existing) {
+                    DB::table('coa')->where('id', $existing->id)->update(array_diff_key($payload, ['created_at' => true]));
+                    $parentIdByKode[$row['kode']] = $existing->id;
+                } else {
+                    $newId = Str::uuid()->toString();
+                    DB::table('coa')->insert(array_merge(['id' => $newId], $payload));
+                    $parentIdByKode[$row['kode']] = $newId;
+                }
+            }
+            // Refetch id coa setelah upsert untuk mapping reference (berdasarkan kode, global cabang_id null)
+            $coaIdByKode = DB::table('coa')->whereNull('cabang_id')
+                ->whereIn('kode_akun', ['111.01.00','114.01.00','210.02.00','410.01.00','410.97.00','410.98.00','410.99.00'])
+                ->pluck('id', 'kode_akun');
+
+            $mappingList = [
+                ['tipe' => 'simpanan_setoran',   'pos' => 'debet',  'akun' => '111.01.00', 'ket' => 'Kas simpanan masuk (Kas Kantor)'],
+                ['tipe' => 'simpanan_setoran',   'pos' => 'kredit', 'akun' => '210.02.00', 'ket' => 'Kewajiban simpanan sukarela bertambah'],
+                ['tipe' => 'simpanan_penarikan', 'pos' => 'debet',  'akun' => '210.02.00', 'ket' => 'Turun kewajiban simpanan sukarela'],
+                ['tipe' => 'simpanan_penarikan', 'pos' => 'kredit', 'akun' => '111.01.00', 'ket' => 'Kas keluar bayar penarikan simpanan'],
+                ['tipe' => 'pinjaman_cair',      'pos' => 'debet',  'akun' => '114.01.00', 'ket' => 'Terbentuk piutang pinjaman anggota'],
+                ['tipe' => 'pinjaman_cair',      'pos' => 'kredit', 'akun' => '111.01.00', 'ket' => 'Kas keluar pencairan pinjaman'],
+                ['tipe' => 'angsuran_pokok',     'pos' => 'debet',  'akun' => '111.01.00', 'ket' => 'Kas masuk angsuran pokok'],
+                ['tipe' => 'angsuran_pokok',     'pos' => 'kredit', 'akun' => '114.01.00', 'ket' => 'Turun piutang pinjaman (porsi pokok)'],
+                ['tipe' => 'angsuran_bunga',     'pos' => 'debet',  'akun' => '111.01.00', 'ket' => 'Kas masuk angsuran bunga'],
+                ['tipe' => 'angsuran_bunga',     'pos' => 'kredit', 'akun' => '410.01.00', 'ket' => 'Pendapatan bunga pinjaman diakui'],
+                ['tipe' => 'biaya_administrasi', 'pos' => 'debet',  'akun' => '111.01.00', 'ket' => 'Kas masuk biaya administrasi'],
+                ['tipe' => 'biaya_administrasi', 'pos' => 'kredit', 'akun' => '410.98.00', 'ket' => 'Pendapatan administrasi layanan'],
+                ['tipe' => 'denda_tunggakan',    'pos' => 'debet',  'akun' => '111.01.00', 'ket' => 'Kas masuk denda keterlambatan'],
+                ['tipe' => 'denda_tunggakan',    'pos' => 'kredit', 'akun' => '410.99.00', 'ket' => 'Pendapatan denda & keterlambatan'],
+            ];
+            foreach ($mappingList as $row) {
+                if (!isset($coaIdByKode[$row['akun']])) {
+                    continue;
+                }
+                $existing = DB::table('coa_mapping')
+                    ->where('cabang_id', null)
+                    ->where('tipe_transaksi', $row['tipe'])
+                    ->where('posisi', $row['pos'])
+                    ->first();
+                $payload = [
+                    'cabang_id' => null,
+                    'tipe_transaksi' => $row['tipe'],
+                    'posisi' => $row['pos'],
+                    'coa_id' => $coaIdByKode[$row['akun']],
+                    'keterangan' => $row['ket'],
+                    'updated_at' => now(),
+                ];
+                if ($existing) {
+                    DB::table('coa_mapping')->where('id', $existing->id)->update($payload);
+                } else {
+                    DB::table('coa_mapping')->insert(array_merge(['id' => Str::uuid()->toString(), 'created_at' => now()], $payload));
+                }
+            }
         });
     }
 }

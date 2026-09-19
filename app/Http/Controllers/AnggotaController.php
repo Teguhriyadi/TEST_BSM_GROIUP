@@ -25,6 +25,27 @@ class AnggotaController extends Controller
 {
     use WithModuleFilter;
 
+    private function generateNoAnggota(string $kategori): string
+    {
+        $prefix = $kategori === 'karyawan' ? 'KRY-' : 'ANG-';
+        $tahun = date('Y');
+        $maxRetry = 10;
+        $retry = 0;
+
+        do {
+            $random = str_pad((string) random_int(1, 99999), 5, '0', STR_PAD_LEFT);
+            $candidate = $prefix . $tahun . '-' . $random;
+            $exists = Anggota::where('no_anggota', $candidate)->exists();
+            $retry++;
+        } while ($exists && $retry < $maxRetry);
+
+        if ($exists) {
+            throw new \RuntimeException('Gagal generate Nomor Anggota unik setelah ' . $maxRetry . ' percobaan. Silakan coba kembali.');
+        }
+
+        return $candidate;
+    }
+
     public function index(Request $request)
     {
         try {
@@ -72,17 +93,24 @@ class AnggotaController extends Controller
     public function create()
     {
         $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
-        return view("modules.anggota.create", compact('cabang'));
+        $kategoriOptions = [
+            ['value' => 'anggota_baru', 'label' => 'Anggota Baru'],
+            ['value' => 'karyawan', 'label' => 'Karyawan'],
+        ];
+        $nextNoAnggota = 'ANG-' . date('Y') . '-_____';
+        return view("modules.anggota.create", compact('cabang', 'kategoriOptions', 'nextNoAnggota'));
     }
 
     public function store(AnggotaCreateRequest $request)
     {
         DB::beginTransaction();
         try {
-            $roleAnggota = Role::where('kode_role', 'ROL-ANGGOTA')->first();
+            $kategori = $request->input('kategori_anggota', 'anggota_baru');
+            $kodeRole = $kategori === 'karyawan' ? 'ROL-KARYAWAN' : 'ROL-ANGGOTA';
+            $roleTarget = Role::where('kode_role', $kodeRole)->first();
 
             $userId = null;
-            if ($request->filled('email') && $roleAnggota) {
+            if ($request->filled('email') && $roleTarget) {
                 $email = trim(mb_strtolower($request->input('email')));
                 $nomorHp = $request->filled('no_hp') ? $request->input('no_hp') : null;
 
@@ -92,7 +120,7 @@ class AnggotaController extends Controller
                     'nama' => $request->input('nama'),
                     'email' => $email,
                     'password' => Hash::make('password'),
-                    'role_id' => $roleAnggota->id,
+                    'role_id' => $roleTarget->id,
                     'nomor_hp' => $nomorHp,
                     'is_active' => ($request->input('status') === 'aktif') ? '1' : '0',
                     'force_change_password' => true,
@@ -102,6 +130,9 @@ class AnggotaController extends Controller
             }
 
             $payload = $request->validated();
+            if (empty(trim((string) $payload['no_anggota']))) {
+                $payload['no_anggota'] = $this->generateNoAnggota($kategori);
+            }
             $payload['users_id'] = $userId;
             unset($payload['email']);
 
@@ -109,9 +140,10 @@ class AnggotaController extends Controller
 
             DB::commit();
 
-            $msg = 'Data berhasil disimpan';
+            $msg = 'Data berhasil disimpan. Nomor Anggota: <b>' . e($payload['no_anggota']) . '</b>';
             if ($userId) {
-                $msg .= '. Akun login anggota otomatis dibuat: Email <b>' . e($request->input('email')) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
+                $namaRole = $kategori === 'karyawan' ? 'Karyawan' : 'Anggota';
+                $msg .= '. Akun login otomatis dibuat (Role: <b>' . $namaRole . '</b>): Email <b>' . e($request->input('email')) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
             } else {
                 $msg .= '. Catatan: Email anggota tidak diisi, akun login tidak dibuat. Isi email anggota jika ingin anggota bisa login mandiri.';
             }
@@ -170,7 +202,11 @@ class AnggotaController extends Controller
     {
         $anggota = Anggota::with('user')->findOrFail($id);
         $cabang = Cabang::where('is_active', '1')->get(['id', 'nama_cabang']);
-        return view("modules.anggota.edit", compact('anggota', 'cabang'));
+        $kategoriOptions = [
+            ['value' => 'anggota_baru', 'label' => 'Anggota Baru'],
+            ['value' => 'karyawan', 'label' => 'Karyawan'],
+        ];
+        return view("modules.anggota.edit", compact('anggota', 'cabang', 'kategoriOptions'));
     }
 
     public function update(AnggotaUpdateRequest $request, $id)
@@ -178,7 +214,10 @@ class AnggotaController extends Controller
         DB::beginTransaction();
         try {
             $anggota = Anggota::findOrFail($id);
-            $roleAnggota = Role::where('kode_role', 'ROL-ANGGOTA')->first();
+            $kategoriBaru = $request->input('kategori_anggota', 'anggota_baru');
+            $kategoriLama = $anggota->kategori_anggota ?? 'anggota_baru';
+            $kodeRoleBaru = $kategoriBaru === 'karyawan' ? 'ROL-KARYAWAN' : 'ROL-ANGGOTA';
+            $roleTarget = Role::where('kode_role', $kodeRoleBaru)->first();
 
             $emailBaru = $request->filled('email') ? trim(mb_strtolower($request->input('email'))) : null;
             $emailLama = $anggota->user?->email;
@@ -188,15 +227,25 @@ class AnggotaController extends Controller
                 $user = User::find($anggota->users_id);
             }
 
-            if ($emailBaru && $roleAnggota) {
+            $isStaff = $user && (
+                $user->hasRole('Administrator') ||
+                $user->hasRole('Teller') ||
+                $user->hasRole('Kepala Cabang')
+            );
+
+            if ($emailBaru && $roleTarget) {
                 if ($user) {
-                    $user->update([
+                    $updateUser = [
                         'cabang_id' => $request->input('cabang_id'),
                         'nama' => $request->input('nama'),
                         'email' => $emailBaru,
                         'nomor_hp' => $request->filled('no_hp') ? $request->input('no_hp') : $user->nomor_hp,
                         'is_active' => ($request->input('status') === 'aktif') ? '1' : '0',
-                    ]);
+                    ];
+                    if (! $isStaff && $kategoriBaru !== $kategoriLama) {
+                        $updateUser['role_id'] = $roleTarget->id;
+                    }
+                    $user->update($updateUser);
                 } else {
                     $user = User::create([
                         'id' => Str::uuid()->toString(),
@@ -204,15 +253,15 @@ class AnggotaController extends Controller
                         'nama' => $request->input('nama'),
                         'email' => $emailBaru,
                         'password' => Hash::make('password'),
-                        'role_id' => $roleAnggota->id,
+                        'role_id' => $roleTarget->id,
                         'nomor_hp' => $request->filled('no_hp') ? $request->input('no_hp') : null,
                         'is_active' => ($request->input('status') === 'aktif') ? '1' : '0',
                         'force_change_password' => true,
                         'password_changed_at' => null,
                     ]);
                 }
-            } elseif (! $emailBaru && $user && $roleAnggota) {
-                if (! $user->hasRole('Administrator') && ! $user->hasRole('Teller') && ! $user->hasRole('Kepala Cabang')) {
+            } elseif (! $emailBaru && $user && $roleTarget) {
+                if (! $isStaff) {
                     if ($anggota->users_id === $user->id) {
                         $anggota->users_id = null;
                         $anggota->save();
@@ -221,12 +270,19 @@ class AnggotaController extends Controller
                     $user = null;
                 }
             } elseif (! $emailBaru && $user) {
-                if ($request->input('status') === 'nonaktif' && $user->hasRole('Anggota')) {
+                if ($request->input('status') === 'nonaktif' && ($user->hasRole('Anggota') || $user->hasRole('Karyawan'))) {
                     $user->update(['is_active' => '0']);
                 }
             }
 
+            if (! $emailBaru && $user && ! $isStaff && $kategoriBaru !== $kategoriLama && $roleTarget) {
+                $user->update(['role_id' => $roleTarget->id]);
+            }
+
             $payload = $request->validated();
+            if (empty(trim((string) $payload['no_anggota']))) {
+                $payload['no_anggota'] = $anggota->no_anggota;
+            }
             if ($user) {
                 $payload['users_id'] = $user->id;
             }
@@ -236,9 +292,13 @@ class AnggotaController extends Controller
 
             DB::commit();
 
-            $msg = 'Data berhasil diubah';
+            $msg = 'Data berhasil diubah. Nomor Anggota: <b>' . e($anggota->no_anggota) . '</b>';
+            if ($kategoriBaru !== $kategoriLama && $user && ! $isStaff) {
+                $namaRoleBaru = $kategoriBaru === 'karyawan' ? 'Karyawan' : 'Anggota';
+                $msg .= '. Role akun login otomatis disesuaikan menjadi <b>' . $namaRoleBaru . '</b>.';
+            }
             if ($emailBaru && ! $emailLama && $user) {
-                $msg .= '. Akun login anggota baru dibuat: Email <b>' . e($emailBaru) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
+                $msg .= ' Akun login anggota baru dibuat: Email <b>' . e($emailBaru) . '</b>, Password default: <b>password</b> (wajib diganti saat login pertama).';
             }
             return redirect()->route('anggota.index')->with('success', $msg);
         } catch (\Exception $e) {

@@ -1,7 +1,7 @@
 @extends('modules.layouts.master')
 
 @push('title')
-<title>Tambah Master Dokumen | BSM Koperasi</title>
+Tambah Master Dokumen | BSM Koperasi
 @endpush
 
 @push('breadcrumbs')

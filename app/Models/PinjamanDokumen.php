@@ -84,7 +84,7 @@ class PinjamanDokumen extends Model
             return null;
         }
 
-        return neo_public_url($this->file_path, 1440);
+        return \App\Helpers\ImageHelper::publicUrl($this->file_path);
     }
 
     public function getUkuranFileFormatAttribute(): string
