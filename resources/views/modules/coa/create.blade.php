@@ -13,7 +13,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-lg-12">
         <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold text-primary">Form Tambah Akun</h6>
@@ -98,7 +98,7 @@
                         </div>
                         <input type="hidden" id="posisi_laporan" name="posisi_laporan" value="{{ old('posisi_laporan', 'neraca') }}">
                         <div class="col-12">
-                            <div class="form-check form-switch">
+                            <div class="form-check form-switch" style="margin-left: 15px">
                                 <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', '1') == '1' ? 'checked' : '' }}>
                                 <label class="form-check-label" for="is_active">Aktif</label>
                             </div>
