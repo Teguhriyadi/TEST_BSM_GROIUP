@@ -5,7 +5,13 @@
 <title>{{ $judulLaporan ?? 'Laporan' }}</title>
 <!--[if gte mso 9]>
 <xml>
-<x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{{ substr($judulLaporan ?? 'Laporan',0,25) }}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+@verbatim
+<x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>
+@endverbatim
+{{ substr($judulLaporan ?? 'Laporan',0,25) }}
+@verbatim
+</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+@endverbatim
 </xml>
 <![endif]-->
 <style>
